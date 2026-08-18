@@ -1,0 +1,44 @@
+{
+  "name": "pi-ctx-info",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pi extension: /ctx command showing a visual breakdown of what occupies the session context",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "context",
+    "tokens"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fitchmultz/pi-ctx-info.git"
+  },
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test breakdown.test.ts"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@earendil-works/pi-tui": "0.84.2",
+    "typescript": "^5.5.0"
+  }
+}
