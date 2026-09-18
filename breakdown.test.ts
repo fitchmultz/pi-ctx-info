@@ -16,19 +16,14 @@ describe("buildBreakdown", () => {
 	it("buckets assistant content blocks into text, thinking, and tool calls", () => {
 		const result = buildBreakdown({
 			...base,
-			entries: [
-				{
-					type: "message",
-					message: {
-						role: "assistant",
-						content: [
-							{ type: "text", text: "a".repeat(400) },
-							{ type: "thinking", thinking: "t".repeat(800) },
-							{ type: "toolCall", name: "bash", arguments: { command: "c".repeat(396) } },
-						],
-					},
-				},
-			],
+			messages: [{
+				role: "assistant",
+				content: [
+					{ type: "text", text: "a".repeat(400) },
+					{ type: "thinking", thinking: "t".repeat(800) },
+					{ type: "toolCall", name: "bash", arguments: { command: "c".repeat(396) } },
+				],
+			}],
 		});
 		const byKey = new Map(result.categories.map((c) => [c.key, c.tokens]));
 		assert.equal(byKey.get("assistant"), 100);
@@ -39,16 +34,11 @@ describe("buildBreakdown", () => {
 	it("counts images in tool results at the pi image estimate", () => {
 		const result = buildBreakdown({
 			...base,
-			entries: [
-				{
-					type: "message",
-					message: {
-						role: "toolResult",
-						toolName: "read",
-						content: [{ type: "image" }, { type: "text", text: "x".repeat(40) }],
-					},
-				},
-			],
+			messages: [{
+				role: "toolResult",
+				toolName: "read",
+				content: [{ type: "image" }, { type: "text", text: "x".repeat(40) }],
+			}],
 		});
 		const toolResults = result.categories.find((c) => c.key === "toolresults");
 		assert.equal(toolResults?.tokens, ESTIMATED_IMAGE_TOKENS + 10);
@@ -57,9 +47,9 @@ describe("buildBreakdown", () => {
 	it("folds compaction and branch summaries into one summaries category", () => {
 		const result = buildBreakdown({
 			...base,
-			entries: [
-				{ type: "compaction", summary: "s".repeat(400) },
-				{ type: "branch_summary", summary: "s".repeat(400) },
+			messages: [
+				{ role: "compactionSummary", summary: "s".repeat(400) },
+				{ role: "branchSummary", summary: "s".repeat(400) },
 			],
 		});
 		const summaries = result.categories.find((c) => c.key === "summaries");
@@ -67,11 +57,10 @@ describe("buildBreakdown", () => {
 	});
 
 	it("estimatedTotal is the sum of categories and largest is sorted desc, capped at 10", () => {
-		const entries = Array.from({ length: 12 }, (_, i) => ({
-			type: "message",
-			message: { role: "user", content: "u".repeat(4 * (i + 1) * 10) },
+		const messages = Array.from({ length: 12 }, (_, i) => ({
+			role: "user", content: "u".repeat(4 * (i + 1) * 10),
 		}));
-		const result = buildBreakdown({ ...base, entries });
+		const result = buildBreakdown({ ...base, messages });
 		const sum = result.categories.reduce((a, c) => a + c.tokens, 0);
 		assert.equal(result.estimatedTotal, sum);
 		assert.equal(result.largest.length, 10);
@@ -81,7 +70,7 @@ describe("buildBreakdown", () => {
 	});
 
 	it("keeps structural sub-rows for context files, skills, and top tools", () => {
-		const result = buildBreakdown({ ...base, entries: [] });
+		const result = buildBreakdown({ ...base, messages: [] });
 		const system = result.categories.find((c) => c.key === "system");
 		assert.deepEqual(
 			system?.subs.map((s) => s.label),
@@ -92,7 +81,7 @@ describe("buildBreakdown", () => {
 	});
 
 	it("expandedSubs carry every context file, skill, and tool", () => {
-		const result = buildBreakdown({ ...base, entries: [] });
+		const result = buildBreakdown({ ...base, messages: [] });
 		const system = result.categories.find((c) => c.key === "system");
 		assert.deepEqual(
 			system?.expandedSubs.map((s) => s.label),

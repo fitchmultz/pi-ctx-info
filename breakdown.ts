@@ -14,19 +14,12 @@ export interface ContentBlock {
 
 export interface MessageLike {
 	role: string;
+	customType?: string;
 	content?: string | ContentBlock[];
 	command?: string;
 	output?: string;
 	summary?: string;
 	toolName?: string;
-}
-
-export interface EntryLike {
-	type: string;
-	message?: MessageLike;
-	customType?: string;
-	content?: string | ContentBlock[];
-	summary?: string;
 }
 
 export interface ContextFileLike {
@@ -51,8 +44,8 @@ export interface BreakdownInput {
 	skills: SkillLike[];
 	/** Active tools only — inactive tool schemas are not sent. */
 	tools: ToolLike[];
-	/** Entries from sessionManager.buildContextEntries(). */
-	entries: EntryLike[];
+	/** Messages from Pi's native context-entry projection. */
+	messages: MessageLike[];
 }
 
 export interface SubRow {
@@ -143,7 +136,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 	toolcalls: "Tool calls",
 	toolresults: "Tool results",
 	custom: "Extension messages",
-	summaries: "Summaries (compaction/branch)",
+	summaries: "Summaries / handoffs",
 	bash: "Bash executions",
 };
 
@@ -188,59 +181,45 @@ export function buildBreakdown(input: BreakdownInput): Breakdown {
 	);
 	expandedSubs.set("tools", toolRows);
 
-	// Session entries.
-	for (const entry of input.entries) {
-		if (entry.type === "message" && entry.message) {
-			const message = entry.message;
-			const tokens = messageTokens(message);
-			switch (message.role) {
-				case "user":
-					add("user", tokens);
-					largest.push({ label: "user message", tokens });
-					break;
-				case "assistant": {
-					for (const block of (message.content as ContentBlock[] | undefined) ?? []) {
-						if (block.type === "text" && block.text) add("assistant", tokensOf(block.text));
-						else if (block.type === "thinking" && block.thinking) add("thinking", tokensOf(block.thinking));
-						else if (block.type === "toolCall") {
-							add("toolcalls", tokensOf((block.name ?? "") + JSON.stringify(block.arguments ?? null)));
-						}
+	// Native context messages. System checkpoints are already counted above.
+	for (const message of input.messages) {
+		const tokens = messageTokens(message);
+		switch (message.role) {
+			case "user":
+				add("user", tokens);
+				largest.push({ label: "user message", tokens });
+				break;
+			case "assistant": {
+				for (const block of (message.content as ContentBlock[] | undefined) ?? []) {
+					if (block.type === "text" && block.text) add("assistant", tokensOf(block.text));
+					else if (block.type === "thinking" && block.thinking) add("thinking", tokensOf(block.thinking));
+					else if (block.type === "toolCall") {
+						add("toolcalls", tokensOf((block.name ?? "") + JSON.stringify(block.arguments ?? null)));
 					}
-					largest.push({ label: "assistant message", tokens });
-					break;
 				}
-				case "toolResult": {
-					add("toolresults", tokens);
-					largest.push({ label: `tool result: ${message.toolName ?? "?"}`, tokens });
-					break;
-				}
-				case "bashExecution":
-					add("bash", tokens);
-					largest.push({ label: "bash execution", tokens });
-					break;
-				case "custom":
-					add("custom", tokens);
-					largest.push({ label: "custom message", tokens });
-					break;
-				case "branchSummary":
-				case "compactionSummary":
-					add("summaries", tokens);
-					largest.push({ label: `${message.role}`, tokens });
-					break;
+				largest.push({ label: "assistant message", tokens });
+				break;
 			}
-		} else if (entry.type === "compaction") {
-			const tokens = tokensOf(entry.summary ?? "");
-			add("summaries", tokens);
-			largest.push({ label: "compaction summary", tokens });
-		} else if (entry.type === "branch_summary") {
-			const tokens = tokensOf(entry.summary ?? "");
-			add("summaries", tokens);
-			largest.push({ label: "branch summary", tokens });
-		} else if (entry.type === "custom_message") {
-			const { chars, images } = contentChars(entry.content);
-			const tokens = Math.ceil(chars / 4) + images * ESTIMATED_IMAGE_TOKENS;
-			add("custom", tokens);
-			largest.push({ label: `extension: ${entry.customType ?? "?"}`, tokens });
+			case "toolResult": {
+				add("toolresults", tokens);
+				largest.push({ label: `tool result: ${message.toolName ?? "?"}`, tokens });
+				break;
+			}
+			case "bashExecution":
+				add("bash", tokens);
+				largest.push({ label: "bash execution", tokens });
+				break;
+			case "custom": {
+				const handoff = message.customType === "context-window";
+				add(handoff ? "summaries" : "custom", tokens);
+				largest.push({ label: handoff ? "context-window handoff" : `extension: ${message.customType ?? "?"}`, tokens });
+				break;
+			}
+			case "branchSummary":
+			case "compactionSummary":
+				add("summaries", tokens);
+				largest.push({ label: `${message.role}`, tokens });
+				break;
 		}
 	}
 
