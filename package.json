@@ -1,7 +1,7 @@
 {
   "name": "pi-ctx-info",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Pi extension: /ctx command showing a visual breakdown of what occupies the session context",
   "keywords": [
@@ -22,7 +22,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --experimental-transform-types --test breakdown.test.ts *.test.mjs"
+    "test": "node --test breakdown.test.ts *.test.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

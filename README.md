@@ -11,7 +11,7 @@ Type `/ctx` in the pi TUI. An overlay opens with:
 - an estimated composition bar (pi's chars/4 heuristic) split by category:
   system prompt (context files, skills), tool definitions, user messages,
   assistant text, thinking, tool calls, tool results, extension messages,
-  compaction/branch summaries, fresh-context handoffs, bash executions
+  compaction/branch summaries, native context-window handoffs (when supported), bash executions
 - the five largest individual entries in the session
 
 Keys: `e` expand/collapse (lists every context file, skill, and active tool, plus the
@@ -35,8 +35,12 @@ pi -e git:github.com/fitchmultz/pi-ctx-info
 ```sh
 npm install   # dev deps only (types + typescript); runtime deps come from pi itself
 npm run check # type-check
-npm test      # unit tests for the breakdown logic
+npm test      # breakdown, native session fixtures, and overlay allocation tests
 ```
+
+Set `PI_HOST_INDEX` to a host's absolute `dist/index.js` path to run the native
+session, snapshot, and overlay tests against that host. Context-window fixtures are
+skipped on hosts without native context windows; ordinary compaction is always tested.
 
 ## Accounting basis
 
@@ -57,3 +61,12 @@ is included in the observed prompt total but is not attributed to discovered fil
 Later context transformations and provider-payload rewrites are outside this estimate.
 Token figures use the chars/4 heuristic. Pi's native usage stays separate; the extension
 does not force the two figures to reconcile. Free space is also labeled as estimated.
+
+## 0.1.1
+
+- Respect narrow TUI allocations, including resize, expanded view, and refresh.
+- Include native context-window framing and handoffs without counting discarded
+  history or duplicating the prompt/tool checkpoint.
+- Retain observed per-run guidance in the system estimate after a request settles.
+- Identify the prompt basis and distinguish native usage from estimated composition
+  and free space.

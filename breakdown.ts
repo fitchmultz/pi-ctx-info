@@ -52,7 +52,7 @@ export interface BreakdownInput {
 	skills: SkillLike[];
 	/** Active tools only — inactive tool schemas are not sent. */
 	tools: ToolLike[];
-	/** Entries from sessionManager.buildContextEntries(). */
+	/** Native context messages wrapped as entries, or ordinary raw summary/message entries. */
 	entries: EntryLike[];
 }
 
