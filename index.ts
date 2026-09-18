@@ -95,7 +95,7 @@ class CtxOverlay {
 	}
 
 	render(width: number): string[] {
-		const w = Math.max(width, 40);
+		const w = Math.max(width, 0);
 		if (this.cachedWidth !== w || this.cachedExpanded !== this.expanded) {
 			const built = this.buildLines(w);
 			this.cachedHeader = built.header;
@@ -125,7 +125,7 @@ class CtxOverlay {
 		const fg = (color: FgColor, text: string) => this.theme.fg(color, text);
 		const bold = (text: string) => this.theme.bold(text);
 		const { breakdown, usage, modelId, contextWindow } = this.snapshot;
-		const inner = width - 2;
+		const inner = Math.max(width - 2, 0);
 		const padLine = (line: string) => this.pad(line, width);
 
 		const header: string[] = [];

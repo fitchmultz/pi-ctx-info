@@ -10,7 +10,7 @@ Type `/ctx` in the pi TUI. An overlay opens with:
 - an estimated composition bar (pi's chars/4 heuristic) split by category:
   system prompt (context files, skills), tool definitions, user messages,
   assistant text, thinking, tool calls, tool results, extension messages,
-  compaction/branch summaries, bash executions
+  compaction/branch summaries, native context-window handoffs (when supported), bash executions
 - the five largest individual entries in the session
 
 Keys: `e` expand/collapse (lists every context file, skill, and active tool, plus the
@@ -34,8 +34,18 @@ pi -e git:github.com/fitchmultz/pi-ctx-info
 ```sh
 npm install   # dev deps only (types + typescript); runtime deps come from pi itself
 npm run check # type-check
-npm test      # unit tests for the breakdown logic
+npm test      # breakdown, native session fixtures, and overlay allocation tests
 ```
+
+Set `PI_HOST_INDEX` to a host's absolute `dist/index.js` path to run the native
+session and overlay tests against that host. Context-window fixtures are skipped
+on hosts without native context windows; ordinary compaction is always tested.
 
 Token figures are estimates. The overlay shows pi's reported total separately instead of
 forcing the estimates to reconcile.
+
+## 0.1.1
+
+- Respect narrow TUI allocations, including resize, expanded view, and refresh.
+- Include native context-window handoff text in the estimated composition without
+  counting discarded history or duplicating the prompt/tool checkpoint.

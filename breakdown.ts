@@ -23,6 +23,7 @@ export interface MessageLike {
 
 export interface EntryLike {
 	type: string;
+	handoff?: string;
 	message?: MessageLike;
 	customType?: string;
 	content?: string | ContentBlock[];
@@ -143,7 +144,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 	toolcalls: "Tool calls",
 	toolresults: "Tool results",
 	custom: "Extension messages",
-	summaries: "Summaries (compaction/branch)",
+	summaries: "Summaries / handoffs",
 	bash: "Bash executions",
 };
 
@@ -228,6 +229,12 @@ export function buildBreakdown(input: BreakdownInput): Breakdown {
 					largest.push({ label: `${message.role}`, tokens });
 					break;
 			}
+		} else if (entry.type === "context_window") {
+			// Like summaries, count the supplied text, not host-generated framing.
+			// The system checkpoint is already represented by input.systemPrompt/tools.
+			const tokens = tokensOf(entry.handoff ?? "");
+			add("summaries", tokens);
+			if (tokens > 0) largest.push({ label: "context-window handoff", tokens });
 		} else if (entry.type === "compaction") {
 			const tokens = tokensOf(entry.summary ?? "");
 			add("summaries", tokens);
