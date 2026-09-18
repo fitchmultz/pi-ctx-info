@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { sessionEntryToContextMessages, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { type Breakdown, buildBreakdown, formatTokens } from "./breakdown.ts";
 
@@ -16,24 +16,43 @@ interface Snapshot {
 	usage: UsageInfo | undefined;
 	modelId: string;
 	contextWindow: number | undefined;
+	promptSource: "prepared" | "current";
+}
+
+interface PreparedPrompt {
+	key: string;
+	text: string;
 }
 
 const PALETTE: FgColor[] = ["accent", "warning", "success", "error", "toolTitle", "customMessageLabel", "muted", "dim", "toolOutput", "searchMatchText"];
 
-function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI): Snapshot {
-	const options = ctx.getSystemPromptOptions();
+function activeTools(pi: ExtensionAPI) {
 	const active = new Set(pi.getActiveTools());
-	const tools = pi
-		.getAllTools()
+	return pi.getAllTools()
 		.filter((tool) => active.has(tool.name))
 		.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters }));
+}
 
+function promptKey(ctx: ExtensionContext, tools: ReturnType<typeof activeTools>): string {
+	return JSON.stringify([
+		ctx.sessionManager.getSessionId(), ctx.model?.provider, ctx.model?.id,
+		ctx.sessionManager.buildContextEntries()[0]?.id, tools,
+	]);
+}
+
+function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?: PreparedPrompt): Snapshot {
+	const options = ctx.getSystemPromptOptions();
+	const tools = activeTools(pi);
+	const usePrepared = prepared?.key === promptKey(ctx, tools);
 	const breakdown = buildBreakdown({
-		systemPrompt: ctx.getSystemPrompt(),
+		systemPrompt: usePrepared ? prepared.text : ctx.getSystemPrompt(),
 		contextFiles: options.contextFiles ?? [],
 		skills: (options.skills ?? []).map((skill) => ({ name: skill.name, description: skill.description })),
 		tools,
-		entries: ctx.sessionManager.buildContextEntries(),
+		// Let the host project summaries and fresh-window handoffs exactly as it does for context.
+		// System checkpoints remain separate from the single prompt/tool accounting above.
+		entries: ctx.sessionManager.buildContextEntries().flatMap((entry) =>
+			sessionEntryToContextMessages(entry).map((message) => ({ type: "message", message }))),
 	});
 
 	const usage = ctx.getContextUsage();
@@ -42,6 +61,7 @@ function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI): Snapshot 
 		usage,
 		modelId: ctx.model?.id ?? "unknown model",
 		contextWindow: usage?.contextWindow ?? ctx.model?.contextWindow,
+		promptSource: usePrepared ? "prepared" : "current",
 	};
 }
 
@@ -124,7 +144,7 @@ class CtxOverlay {
 	private buildLines(width: number): { header: string[]; body: string[] } {
 		const fg = (color: FgColor, text: string) => this.theme.fg(color, text);
 		const bold = (text: string) => this.theme.bold(text);
-		const { breakdown, usage, modelId, contextWindow } = this.snapshot;
+		const { breakdown, usage, modelId, contextWindow, promptSource } = this.snapshot;
 		const inner = width - 2;
 		const padLine = (line: string) => this.pad(line, width);
 
@@ -133,14 +153,16 @@ class CtxOverlay {
 		header.push(padLine(fg("dim", "─".repeat(inner))));
 		header.push(padLine(fg("muted", modelId) + (contextWindow ? fg("dim", ` · window ${formatTokens(contextWindow)}`) : "")));
 		if (usage) {
-			const reported =
-				usage.tokens === null
-					? "unknown (post-compaction, no LLM response yet)"
-					: `${formatTokens(usage.tokens)} (${usage.percent?.toFixed(1)}% of window)`;
-			header.push(padLine(fg("muted", "reported (last request): ") + reported));
+			const nativeUsage = usage.tokens === null
+				? "unknown"
+				: `${formatTokens(usage.tokens)} (${usage.percent?.toFixed(1)}% of window)`;
+			header.push(padLine(fg("muted", "Pi context usage: ") + nativeUsage + fg("dim", " · reported + estimated")));
 		} else {
-			header.push(padLine(fg("dim", "reported: no usage data yet")));
+			header.push(padLine(fg("dim", "Pi context usage: unavailable")));
 		}
+		header.push(padLine(fg("dim", promptSource === "prepared"
+			? "current entries/tools; last prepared request prompt"
+			: "current entries/tools; current Pi prompt (per-run guidance may be unavailable)")));
 		const estimatedPct = contextWindow ? ` (${((breakdown.estimatedTotal / contextWindow) * 100).toFixed(1)}% of window)` : "";
 		header.push(padLine(fg("muted", "estimated composition: ") + `${formatTokens(breakdown.estimatedTotal)}${estimatedPct}` + fg("dim", " · chars/4 heuristic")));
 		header.push(padLine(""));
@@ -163,7 +185,7 @@ class CtxOverlay {
 		if (contextWindow && contextWindow > breakdown.estimatedTotal) {
 			const free = contextWindow - breakdown.estimatedTotal;
 			const pct = ((free / contextWindow) * 100).toFixed(1);
-			body.push(padLine(fg("dim", "□ ") + "free".padEnd(30) + formatTokens(free).padStart(8) + fg("dim", `  ${pct}%`)));
+			body.push(padLine(fg("dim", "□ ") + "estimated free".padEnd(30) + formatTokens(free).padStart(8) + fg("dim", `  ${pct}%`)));
 		}
 
 		const largest = this.expanded ? breakdown.largest : breakdown.largest.slice(0, 5);
@@ -216,6 +238,19 @@ class CtxOverlay {
 }
 
 export default function (pi: ExtensionAPI) {
+	let prepared: PreparedPrompt | undefined;
+	// Run-only prompt additions disappear from getSystemPrompt() after settlement.
+	// Keep only the observed prompt in memory; never write sensitive guidance to the session.
+	pi.on("context", (_event, ctx) => {
+		prepared = { key: promptKey(ctx, activeTools(pi)), text: ctx.getSystemPrompt() };
+	});
+	const clearPrompt = () => { prepared = undefined; };
+	pi.on("session_start", clearPrompt);
+	pi.on("session_tree", clearPrompt);
+	pi.on("session_compact", clearPrompt);
+	pi.on("model_select", clearPrompt);
+	pi.on("session_shutdown", clearPrompt);
+
 	pi.registerCommand("ctx", {
 		description: "Visual breakdown of what occupies the session context",
 		handler: async (_args, ctx) => {
@@ -226,12 +261,12 @@ export default function (pi: ExtensionAPI) {
 			await ctx.ui.custom<null>(
 				(tui, theme, _keybindings, done) =>
 					new CtxOverlay(
-						takeSnapshot(ctx, pi),
+						takeSnapshot(ctx, pi, prepared),
 						tui,
 						theme,
 						() => done(null),
 						() => {
-							const next = takeSnapshot(ctx, pi);
+							const next = takeSnapshot(ctx, pi, prepared);
 							tui.requestRender();
 							return next;
 						},

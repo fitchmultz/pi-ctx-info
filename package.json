@@ -22,7 +22,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test breakdown.test.ts"
+    "test": "node --experimental-transform-types --test breakdown.test.ts *.test.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

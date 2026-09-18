@@ -14,6 +14,7 @@ export interface ContentBlock {
 
 export interface MessageLike {
 	role: string;
+	customType?: string;
 	content?: string | ContentBlock[];
 	command?: string;
 	output?: string;
@@ -143,7 +144,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 	toolcalls: "Tool calls",
 	toolresults: "Tool results",
 	custom: "Extension messages",
-	summaries: "Summaries (compaction/branch)",
+	summaries: "Summaries / handoffs",
 	bash: "Bash executions",
 };
 
@@ -218,10 +219,12 @@ export function buildBreakdown(input: BreakdownInput): Breakdown {
 					add("bash", tokens);
 					largest.push({ label: "bash execution", tokens });
 					break;
-				case "custom":
-					add("custom", tokens);
-					largest.push({ label: "custom message", tokens });
+				case "custom": {
+					const handoff = message.customType === "context-window";
+					add(handoff ? "summaries" : "custom", tokens);
+					largest.push({ label: handoff ? "context-window handoff" : `extension: ${message.customType ?? "?"}`, tokens });
 					break;
+				}
 				case "branchSummary":
 				case "compactionSummary":
 					add("summaries", tokens);
