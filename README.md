@@ -20,6 +20,9 @@ top-10 largest entries), `up`/`down`/`home`/`end` scroll the expanded view,
 
 ## Install
 
+Requires Pi 0.84.2 or later. Native fresh-context handoffs are shown on hosts that
+support them; ordinary context and compaction accounting also work on official Pi.
+
 ```sh
 pi install git:github.com/fitchmultz/pi-ctx-info
 ```

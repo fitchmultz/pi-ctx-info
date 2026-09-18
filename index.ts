@@ -51,8 +51,7 @@ function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?:
 		tools,
 		// Let the host project summaries and fresh-window handoffs exactly as it does for context.
 		// System checkpoints remain separate from the single prompt/tool accounting above.
-		entries: ctx.sessionManager.buildContextEntries().flatMap((entry) =>
-			sessionEntryToContextMessages(entry).map((message) => ({ type: "message", message }))),
+		messages: ctx.sessionManager.buildContextEntries().flatMap(sessionEntryToContextMessages),
 	});
 
 	const usage = ctx.getContextUsage();
