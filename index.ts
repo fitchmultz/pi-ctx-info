@@ -248,7 +248,6 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_tree", clearPrompt);
 	pi.on("session_compact", clearPrompt);
 	pi.on("model_select", clearPrompt);
-	pi.on("session_shutdown", clearPrompt);
 
 	pi.registerCommand("ctx", {
 		description: "Visual breakdown of what occupies the session context",

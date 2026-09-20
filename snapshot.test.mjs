@@ -48,7 +48,9 @@ test("shows prepared request instructions after the run settles", async () => {
 	const h = await harness();
 	h.sessionManager.appendMessage({ role: "user", content: "question", timestamp: 1 });
 	h.setPrompt("b".repeat(400) + "g".repeat(800));
+	const before = structuredClone(h.sessionManager.getEntries());
 	await h.event("context");
+	assert.deepEqual(h.sessionManager.getEntries(), before, "observed guidance is never persisted");
 	h.setPrompt("b".repeat(400));
 	const shown = await h.show();
 	assert.match(shown, /System prompt\s+300\b/);
@@ -78,9 +80,13 @@ test("does not reuse a prepared prompt after active tools, model, or session con
 	await h.event("session_tree");
 	assert.match(await h.show(), /System prompt\s+100\b/);
 
+	for (const event of ["session_start", "session_compact", "model_select"]) {
+		await capture();
+		await h.event(event);
+		assert.match(await h.show(), /System prompt\s+100\b/);
+	}
 	await capture();
-	await h.event("session_start");
-	assert.match(await h.show(), /System prompt\s+100\b/);
+	assert.match(await (await harness()).show(), /current Pi prompt/);
 });
 
 test("counts the native fresh-context handoff while excluding old conversation", async t => {

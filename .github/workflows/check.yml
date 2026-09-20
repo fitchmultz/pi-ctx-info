@@ -39,6 +39,9 @@ jobs:
             ref: e4ce7b449f4d91589c8760d6fbfa6eaaf82b05fe
           - repository: fitchmultz/pi
             ref: 564bbcd1cc790b5f7f60525dc0f6cc119c10eef3
+          - repository: fitchmultz/pi
+            ref: c3f449637e4b2acb4524c7e58107e4a4adb5c01d
+            checkpoint: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,4 +64,5 @@ jobs:
         working-directory: extension
         env:
           PI_HOST_INDEX: ${{ github.workspace }}/host/packages/coding-agent/dist/index.js
+          PI_REQUIRE_CHECKPOINT: ${{ matrix.checkpoint && '1' || '' }}
           PI_OFFLINE: "1"
