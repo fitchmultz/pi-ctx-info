@@ -42,7 +42,8 @@ npm test      # breakdown, native session fixtures, and overlay allocation tests
 ```
 
 Set `PI_HOST_INDEX` to a host's absolute `dist/index.js` path to run the native
-session, snapshot, and overlay tests against that host. Context-window fixtures are
+session, snapshot, overlay, and checkpoint tests against that host. The checkpoint
+test requires a checkpoint-capable host and uses an isolated HOME without model calls. Context-window fixtures are
 skipped on hosts without native context windows; ordinary compaction is always tested.
 
 ## Accounting basis
