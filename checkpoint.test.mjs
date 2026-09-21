@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 // Opt in with a checkpoint-capable native host; never substitute a mock guard.
-const required = process.env.PI_REQUIRE_CHECKPOINT === "1";
+const required = process.env.PI_COMPAT_HOST === "fork" || process.env.PI_REQUIRE_CHECKPOINT === "1";
 test("native settled checkpoints preserve history and tool selection across reload/restore", {
   skip: !required && !process.env.PI_HOST_INDEX && "Set PI_HOST_INDEX to a checkpoint-capable host's dist/index.js",
 }, (t) => {

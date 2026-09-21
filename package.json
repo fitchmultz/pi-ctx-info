@@ -22,6 +22,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
+    "check:compat": "npm run check && npm test",
     "test": "node --test breakdown.test.ts *.test.mjs"
   },
   "peerDependencies": {
@@ -37,8 +38,8 @@
     }
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.84.2",
-    "@earendil-works/pi-tui": "0.84.2",
+    "@earendil-works/pi-coding-agent": "0.86.1",
+    "@earendil-works/pi-tui": "0.86.1",
     "typescript": "^5.5.0"
   }
 }
