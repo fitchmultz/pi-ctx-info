@@ -92,6 +92,7 @@ test("does not reuse a prepared prompt after active tools, model, or session con
 test("counts the native fresh-context handoff while excluding old conversation", async t => {
 	const h = await harness();
 	if (typeof h.sessionManager.appendContextWindow !== "function") {
+		assert.notEqual(process.env.PI_COMPAT_HOST, "fork", "Fork qualification requires native fresh context windows");
 		t.skip("This Pi host does not implement fresh context windows");
 		return;
 	}

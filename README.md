@@ -37,16 +37,14 @@ pi -e git:github.com/fitchmultz/pi-ctx-info
 
 ```sh
 npm install   # dev deps only (types + typescript); runtime deps come from pi itself
+npm run check:compat # type-check + all behavior tests
 npm run check # type-check
 npm test      # breakdown, native session fixtures, and overlay allocation tests
 ```
 
-Set `PI_HOST_INDEX` to a host's absolute `dist/index.js` path to run the native
-session, snapshot, overlay, and checkpoint tests against that host. Checkpoint tests
-use an isolated HOME without model calls and skip hosts without checkpoint support.
-CI also includes a pinned checkpoint-capable fork with `PI_REQUIRE_CHECKPOINT=1`,
-which fails if that host or its checkpoint API is absent. Context-window fixtures
-skip hosts without native context windows; ordinary compaction is always tested.
+The development Pi cohort is pinned to official `0.86.1`; the declared `0.84.2` floor is separate from this current qualification baseline. Pi supplies runtime peers; no build or `prepare` is needed.
+
+Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run the native session, snapshot, overlay, and checkpoint tests against that host. Typechecking resolves the checkout's `node_modules`, so host qualification must select that graph too, not only set the hook. Checkpoint tests use an isolated HOME without model calls and skip hosts without checkpoint support. `PI_COMPAT_HOST=fork` requires both checkpoint and fresh-context APIs; `PI_REQUIRE_CHECKPOINT=1` also remains supported for standalone checkpoint qualification. Ordinary compaction is always tested.
 
 ## Accounting basis
 
