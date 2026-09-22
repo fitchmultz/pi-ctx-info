@@ -42,15 +42,15 @@ npm run check # type-check
 npm test      # breakdown, native session fixtures, and overlay allocation tests
 ```
 
-The development Pi cohort is pinned to official `0.86.1`; the declared `0.84.2` floor is separate from this current qualification baseline. Pi supplies runtime peers; no build or `prepare` is needed.
+The development Pi cohort is pinned to official `0.87.0`; the declared `0.84.2` floor is separate from this current qualification baseline. Pi supplies runtime peers; no build or `prepare` is needed.
 
 Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run the native session, snapshot, overlay, and checkpoint tests against that host. Typechecking resolves the checkout's `node_modules`, so host qualification must select that graph too, not only set the hook. Checkpoint tests use an isolated HOME without model calls and skip hosts without checkpoint support. `PI_COMPAT_HOST=fork` requires both checkpoint and fresh-context APIs; `PI_REQUIRE_CHECKPOINT=1` also remains supported for standalone checkpoint qualification. Ordinary compaction is always tested.
 
 ## Accounting basis
 
 The composition uses current native context entries and active tool definitions. Pi's
-own entry projection includes fresh-context markers and handoffs while excluding old
-conversation. System checkpoints are counted through the single system-prompt row,
+own entry projection applies context edits and includes fresh-context markers and
+handoffs while excluding omitted or old conversation. System checkpoints are counted through the single system-prompt row,
 so they do not duplicate prompt or tool totals.
 
 The system row uses the prompt observed at the last native `context` event, including

@@ -1,4 +1,4 @@
-import { sessionEntryToContextMessages, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { buildSessionContext, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { type Breakdown, buildBreakdown, formatTokens } from "./breakdown.ts";
 
@@ -49,9 +49,9 @@ function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?:
 		contextFiles: options.contextFiles ?? [],
 		skills: (options.skills ?? []).map((skill) => ({ name: skill.name, description: skill.description })),
 		tools,
-		// Let the host project summaries and fresh-window handoffs exactly as it does for context.
+		// Use the host's edited projection, including summaries and fresh-window handoffs.
 		// System checkpoints remain separate from the single prompt/tool accounting above.
-		messages: ctx.sessionManager.buildContextEntries().flatMap(sessionEntryToContextMessages),
+		messages: buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages,
 	});
 
 	const usage = ctx.getContextUsage();

@@ -116,6 +116,22 @@ test("counts the native fresh-context handoff while excluding old conversation",
 	assert.match(fresh, /System prompt\s+100\b/);
 });
 
+test("counts projected context edits without changing raw history", async () => {
+	const h = await harness();
+	h.setActive([]);
+	const omitted = h.sessionManager.appendMessage({ role: "user", content: "o".repeat(400), timestamp: 0 });
+	const replaced = h.sessionManager.appendMessage({ role: "user", content: "r".repeat(800), timestamp: 1 });
+	const original = structuredClone(h.sessionManager.getEntries());
+	h.sessionManager.appendContextEdit(omitted, null);
+	h.sessionManager.appendContextEdit(replaced, { content: "kept" });
+	assert.match(await h.show(), /estimated composition: 101\b/);
+	assert.match(await h.show(), /User messages\s+1\b/);
+	assert.deepEqual(h.sessionManager.getEntries().slice(0, 2), original);
+
+	h.sessionManager.branch(replaced);
+	assert.match(await h.show(), /User messages\s+300\b/);
+});
+
 test("counts native compaction and retained messages without discarded history", async () => {
 	const h = await harness();
 	h.setActive([]);
