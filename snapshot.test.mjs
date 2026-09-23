@@ -34,7 +34,7 @@ async function harness() {
 		},
 	};
 	return {
-		ctx, sessionManager,
+		ctx, sessionManager, tools,
 		setPrompt(value) { prompt = value; },
 		setActive(value) { active = value; },
 		async event(name) {
@@ -43,6 +43,14 @@ async function harness() {
 		async show() { await extension.commands.get("ctx").handler("", ctx); return output; },
 	};
 }
+
+test("counts active namespaced tools in the breakdown", async () => {
+	const h = await harness();
+	assert.match(await h.show(), /Tool definitions\s+5\b/);
+	h.tools.push({ id: '["docs","search"]', namespace: "docs", name: "search", description: "x".repeat(400), parameters: {} });
+	h.setActive(['["docs","search"]']);
+	assert.match(await h.show(), /Tool definitions\s+102\b/);
+});
 
 test("shows prepared request instructions after the run settles", async () => {
 	const h = await harness();

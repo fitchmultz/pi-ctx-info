@@ -29,7 +29,7 @@ const PALETTE: FgColor[] = ["accent", "warning", "success", "error", "toolTitle"
 function activeTools(pi: ExtensionAPI) {
 	const active = new Set(pi.getActiveTools());
 	return pi.getAllTools()
-		.filter((tool) => active.has(tool.name))
+		.filter((tool) => active.has("id" in tool && typeof tool.id === "string" ? tool.id : tool.name))
 		.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters }));
 }
 
