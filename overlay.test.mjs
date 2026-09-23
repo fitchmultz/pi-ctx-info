@@ -21,7 +21,7 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 	const terminal = { rows: 40 };
 	const ctx = {
 		mode: "tui",
-		getSystemPromptOptions: () => ({}),
+		getSystemPromptOptions: () => ({ contextFiles: [{ path: "/repo/configs/a-very-long-context-file-name-here.md", content: "x".repeat(400) }] }),
 		getSystemPrompt: () => "Context composition fixture 界".repeat(20),
 		getContextUsage: () => undefined,
 		sessionManager: SessionManager.inMemory(),
@@ -41,6 +41,11 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 	const narrowSystemRow = component.render(34).find((line) => line.includes("System prompt"));
 	assert.ok(narrowSystemRow);
 	assert.match(narrowSystemRow, new RegExp(`\\b${Math.ceil(ctx.getSystemPrompt().length / 4)}\\b`), "category count must remain visible in narrow overlays");
+	component.handleInput("e");
+	const narrowFileRow = component.render(50).find((line) => line.includes("configs/a-very"));
+	assert.ok(narrowFileRow);
+	assert.match(narrowFileRow, /\b100\b/, "long context-file count must remain visible");
+	component.handleInput("e");
 	const full = component.render(80);
 	for (const rows of [10, 1]) {
 		terminal.rows = rows;

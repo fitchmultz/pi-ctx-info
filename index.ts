@@ -149,9 +149,10 @@ class CtxOverlay {
 		const { breakdown, usage, modelId, contextWindow, promptSource } = this.snapshot;
 		const inner = Math.max(width - 2, 0);
 		const padLine = (line: string) => this.pad(line, width);
-		const labelAndCount = (label: string, tokens: number, labelWidth: number) => {
+		const countedRow = (prefix: string, label: string, tokens: number, labelWidth: number, suffix = "") => {
 			const count = formatTokens(tokens).padStart(8);
-			return width < 50 ? `${count}  ${label}` : label.padEnd(labelWidth) + count;
+			const wide = prefix + label.padEnd(labelWidth) + count + suffix;
+			return visibleWidth(wide) < width ? wide : prefix + count + "  " + label + suffix;
 		};
 
 		const header: string[] = [];
@@ -182,16 +183,16 @@ class CtxOverlay {
 			const color = PALETTE[i % PALETTE.length] ?? "muted";
 			const basis = contextWindow ?? breakdown.estimatedTotal;
 			const pct = basis > 0 ? ((category.tokens / basis) * 100).toFixed(1) : "0.0";
-			body.push(padLine(fg(color, "■ ") + labelAndCount(category.label, category.tokens, 30) + fg("dim", `  ${pct}%`)));
+			body.push(padLine(countedRow(fg(color, "■ "), category.label, category.tokens, 30, fg("dim", `  ${pct}%`))));
 			const rows = this.expanded ? category.expandedSubs : category.subs;
 			for (const sub of rows) {
-				body.push(padLine(fg("dim", `    ${labelAndCount(sub.label, sub.tokens, 26)}`)));
+				body.push(padLine(fg("dim", countedRow("    ", sub.label, sub.tokens, 26))));
 			}
 		});
 		if (contextWindow && contextWindow > breakdown.estimatedTotal) {
 			const free = contextWindow - breakdown.estimatedTotal;
 			const pct = ((free / contextWindow) * 100).toFixed(1);
-			body.push(padLine(fg("dim", "□ ") + labelAndCount("estimated free", free, 30) + fg("dim", `  ${pct}%`)));
+			body.push(padLine(countedRow(fg("dim", "□ "), "estimated free", free, 30, fg("dim", `  ${pct}%`))));
 		}
 
 		const largest = this.expanded ? breakdown.largest : breakdown.largest.slice(0, 5);
@@ -199,7 +200,7 @@ class CtxOverlay {
 			body.push(padLine(""));
 			body.push(padLine(fg("muted", bold("largest entries"))));
 			largest.forEach((entry, i) => {
-				body.push(padLine(fg("dim", `${i + 1}. `) + labelAndCount(entry.label, entry.tokens, 34)));
+				body.push(padLine(countedRow(fg("dim", `${i + 1}. `), entry.label, entry.tokens, 34)));
 			});
 		}
 
