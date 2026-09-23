@@ -56,9 +56,10 @@ row, so they do not duplicate prompt or tool totals.
 The system row uses the prompt observed at the last native `context` event, including
 per-run instructions from extensions such as Posthorse and ATB. That prompt is kept
 only in memory. The overlay identifies this basis and falls back to Pi's current
-prompt after a session, branch, model, tool, or context-boundary change. After reload
-or resume, idle Pi may expose only its base prompt until another request is prepared;
-the overlay makes that limitation explicit. Refresh recomputes current entries/tools.
+prompt after a session, branch, model, tool, base-prompt, or context-boundary
+change. After reload or resume, idle Pi may expose only its base prompt until
+another request is prepared; the overlay makes that limitation explicit. Refresh
+recomputes current entries/tools.
 
 Expanded context-file rows describe discovered files. Guidance injected by extensions
 is included in the observed prompt total but is not attributed to discovered files.

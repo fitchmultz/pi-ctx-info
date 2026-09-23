@@ -22,6 +22,7 @@ interface Snapshot {
 interface PreparedPrompt {
 	key: string;
 	text: string;
+	settledPrompt?: string;
 }
 
 const PALETTE: FgColor[] = ["accent", "warning", "success", "error", "toolTitle", "customMessageLabel", "muted", "dim", "toolOutput", "searchMatchText"];
@@ -43,7 +44,8 @@ function promptKey(ctx: ExtensionContext, tools: ReturnType<typeof activeTools>)
 function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?: PreparedPrompt): Snapshot {
 	const options = ctx.getSystemPromptOptions();
 	const tools = activeTools(pi);
-	const usePrepared = prepared?.key === promptKey(ctx, tools);
+	const usePrepared = prepared?.key === promptKey(ctx, tools)
+		&& (prepared.settledPrompt === undefined || prepared.settledPrompt === ctx.getSystemPrompt());
 	const breakdown = buildBreakdown({
 		systemPrompt: usePrepared ? prepared.text : ctx.getSystemPrompt(),
 		contextFiles: options.contextFiles ?? [],
@@ -250,6 +252,9 @@ export default function (pi: ExtensionAPI) {
 	// Keep only the observed prompt in memory; never write sensitive guidance to the session.
 	pi.on("context", (_event, ctx) => {
 		prepared = { key: promptKey(ctx, activeTools(pi)), text: ctx.getSystemPrompt() };
+	});
+	pi.on("agent_settled", (_event, ctx) => {
+		if (prepared && prepared.settledPrompt === undefined) prepared.settledPrompt = ctx.getSystemPrompt();
 	});
 	const clearPrompt = () => { prepared = undefined; };
 	pi.on("session_start", clearPrompt);

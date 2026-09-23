@@ -16,6 +16,7 @@ async function harness() {
 	let active = ["read"];
 	const tools = [{ name: "read", description: "Read a file", parameters: {} }];
 	const sessionManager = SessionManager.inMemory();
+	const promptOptions = { contextFiles: [], skills: [], appendSystemPrompt: "" };
 	loaded.runtime.getActiveTools = () => active;
 	loaded.runtime.getAllTools = () => tools;
 	let output;
@@ -24,7 +25,7 @@ async function harness() {
 		mode: "tui", model: { provider: "fixture", id: "one", contextWindow: 128000 },
 		sessionManager,
 		getSystemPrompt: () => prompt,
-		getSystemPromptOptions: () => ({ contextFiles: [], skills: [] }),
+		getSystemPromptOptions: () => promptOptions,
 		getContextUsage: () => ({ tokens: 1234, contextWindow: 128000, percent: 0.964 }),
 		ui: {
 			custom: async factory => {
@@ -34,7 +35,7 @@ async function harness() {
 		},
 	};
 	return {
-		ctx, sessionManager, tools,
+		ctx, sessionManager, tools, promptOptions,
 		setPrompt(value) { prompt = value; },
 		setActive(value) { active = value; },
 		async event(name) {
@@ -60,11 +61,27 @@ test("shows prepared request instructions after the run settles", async () => {
 	await h.event("context");
 	assert.deepEqual(h.sessionManager.getEntries(), before, "observed guidance is never persisted");
 	h.setPrompt("b".repeat(400));
+	await h.event("agent_settled");
 	const shown = await h.show();
 	assert.match(shown, /System prompt\s+300\b/);
 	assert.match(shown, /last prepared request prompt/);
 	assert.match(shown, /Pi context usage:.*1,234/);
 	assert.doesNotMatch(shown, /reported \(last request\)/);
+});
+
+test("uses the current prompt after an idle base-prompt edit", async () => {
+	const h = await harness();
+	h.setPrompt("b".repeat(400) + "g".repeat(800));
+	await h.event("context");
+	h.setPrompt("b".repeat(400));
+	await h.event("agent_settled");
+	assert.match(await h.show(), /System prompt\s+300\b/);
+
+	h.promptOptions.appendSystemPrompt = "z".repeat(40_000);
+	h.setPrompt("b".repeat(400) + h.promptOptions.appendSystemPrompt);
+	const shown = await h.show();
+	assert.match(shown, /System prompt\s+10,100\b/);
+	assert.match(shown, /current Pi prompt/);
 });
 
 test("does not reuse a prepared prompt after active tools, model, or session context changes", async () => {
