@@ -13,6 +13,23 @@ const base = {
 };
 
 describe("buildBreakdown", () => {
+	it("excludes !! bash executions from totals and largest entries", () => {
+		const included = [
+			{ role: "bashExecution", command: "echo", output: "kept" },
+			{ role: "bashExecution", command: "echo", output: "kept", excludeFromContext: false },
+		];
+		const expected = buildBreakdown({ ...base, messages: included });
+		assert.equal(expected.categories.find((c) => c.key === "bash")?.tokens, 4);
+		assert.equal(expected.largest.length, 2);
+		assert.deepEqual(buildBreakdown({
+			...base,
+			messages: [
+				...included,
+				{ role: "bashExecution", command: "echo", output: "x".repeat(40000), excludeFromContext: true },
+			],
+		}), expected);
+	});
+
 	it("buckets assistant content blocks into text, thinking, and tool calls", () => {
 		const result = buildBreakdown({
 			...base,

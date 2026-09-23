@@ -18,6 +18,7 @@ export interface MessageLike {
 	content?: string | ContentBlock[];
 	command?: string;
 	output?: string;
+	excludeFromContext?: boolean;
 	summary?: string;
 	toolName?: string;
 }
@@ -183,6 +184,7 @@ export function buildBreakdown(input: BreakdownInput): Breakdown {
 
 	// Native context messages. System checkpoints are already counted above.
 	for (const message of input.messages) {
+		if (message.role === "bashExecution" && message.excludeFromContext) continue;
 		const tokens = messageTokens(message);
 		switch (message.role) {
 			case "user":
