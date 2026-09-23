@@ -135,3 +135,16 @@ test("counts native compaction and retained messages without discarded history",
 	assert.match(shown, /User messages\s+1\b/);
 	assert.match(shown, /Summaries \/ handoffs\s+2\b/);
 });
+
+test("does not count a message removed from model context", async t => {
+	const h = await harness();
+	if (typeof h.sessionManager.appendContextEdit !== "function") {
+		t.skip("Selected host does not support context edits");
+		return;
+	}
+	const id = h.sessionManager.appendMessage({ role: "user", content: "x".repeat(40000), timestamp: 1 });
+	assert.match(await h.show(), /User messages\s+10,000\b/);
+	h.sessionManager.appendContextEdit(id, null);
+	assert.equal(h.sessionManager.buildSessionContext().messages.some(m => m.role === "user"), false);
+	assert.doesNotMatch(await h.show(), /User messages/);
+});

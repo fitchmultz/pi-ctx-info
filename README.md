@@ -48,10 +48,10 @@ Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` pa
 
 ## Accounting basis
 
-The composition uses current native context entries and active tool definitions. Pi's
-own entry projection includes fresh-context markers and handoffs while excluding old
-conversation. System checkpoints are counted through the single system-prompt row,
-so they do not duplicate prompt or tool totals.
+The composition uses Pi's current model-context projection and active tool definitions.
+It applies context edits, includes fresh-context markers and handoffs, and excludes
+discarded conversation. System checkpoints are counted through the single system-prompt
+row, so they do not duplicate prompt or tool totals.
 
 The system row uses the prompt observed at the last native `context` event, including
 per-run instructions from extensions such as Posthorse and ATB. That prompt is kept
