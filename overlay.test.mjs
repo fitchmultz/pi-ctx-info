@@ -18,6 +18,7 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 	loaded.runtime.getActiveTools = () => [];
 	loaded.runtime.getAllTools = () => [];
 	let component;
+	const terminal = { rows: 40 };
 	const ctx = {
 		mode: "tui",
 		getSystemPromptOptions: () => ({}),
@@ -25,7 +26,7 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 		getContextUsage: () => undefined,
 		sessionManager: SessionManager.inMemory(),
 		ui: { custom: async (factory) => {
-			component = factory({ terminal: { rows: 40 }, requestRender() {} }, getThemeByName("dark"), {}, () => {});
+			component = factory({ terminal, requestRender() {} }, getThemeByName("dark"), {}, () => {});
 		} },
 	};
 	await loaded.extensions[0].commands.get("ctx").handler("", ctx);
@@ -36,5 +37,19 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 			assert.ok(lines.length > 0);
 			for (const line of lines) assert.ok(visibleWidth(line) <= width, `${visibleWidth(line)} columns exceeds ${width}`);
 		}
+	}
+	const full = component.render(80);
+	for (const rows of [10, 1]) {
+		terminal.rows = rows;
+		component.handleInput("\x1b[H"); // Home
+		const seen = new Set();
+		for (let i = 0; i < full.length; i++) {
+			const lines = component.render(80);
+			assert.ok(lines.length <= Math.max(1, Math.floor(rows * 0.85)), "overlay exceeds its height allocation");
+			if (rows > 1) assert.match(lines.at(-1), /esc\/q close/);
+			for (const line of lines) seen.add(line);
+			component.handleInput("\x1b[B"); // Down
+		}
+		for (const line of full.slice(0, -1)) assert.ok(seen.has(line), "scrolling must reach every content line");
 	}
 });

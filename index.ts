@@ -123,14 +123,17 @@ class CtxOverlay {
 			this.cachedExpanded = this.expanded;
 		}
 
-		// Reserve rows for the pinned header and hint line; the overlay caps at 85% of the terminal.
-		const overlayRows = Math.floor(this.tui.terminal.rows * 0.85);
-		const visible = Math.max(3, overlayRows - this.cachedHeader.length - 2);
-		const maxOffset = Math.max(0, this.cachedBody.length - visible);
+		// Scroll the header too when pinning it would leave no room for content.
+		const overlayRows = Math.max(1, Math.floor(this.tui.terminal.rows * 0.85));
+		const header = overlayRows >= this.cachedHeader.length + 2 ? this.cachedHeader : [];
+		const body = header.length > 0 ? this.cachedBody : [...this.cachedHeader, ...this.cachedBody];
+		const hintRows = overlayRows > 1 ? 1 : 0;
+		const visible = overlayRows - header.length - hintRows;
+		const maxOffset = Math.max(0, body.length - visible);
 		this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxOffset));
 
-		const hint = this.buildHint(w, maxOffset);
-		return [...this.cachedHeader, ...this.cachedBody.slice(this.scrollOffset, this.scrollOffset + visible), hint];
+		const hint = hintRows ? [this.buildHint(w, maxOffset)] : [];
+		return [...header, ...body.slice(this.scrollOffset, this.scrollOffset + visible), ...hint];
 	}
 
 	private pad(line: string, width: number): string {
