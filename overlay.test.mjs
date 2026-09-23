@@ -38,6 +38,9 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 			for (const line of lines) assert.ok(visibleWidth(line) <= width, `${visibleWidth(line)} columns exceeds ${width}`);
 		}
 	}
+	const narrowSystemRow = component.render(34).find((line) => line.includes("System prompt"));
+	assert.ok(narrowSystemRow);
+	assert.match(narrowSystemRow, new RegExp(`\\b${Math.ceil(ctx.getSystemPrompt().length / 4)}\\b`), "category count must remain visible in narrow overlays");
 	const full = component.render(80);
 	for (const rows of [10, 1]) {
 		terminal.rows = rows;
