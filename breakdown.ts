@@ -1,7 +1,7 @@
 /**
  * Pure context-composition logic for the /ctx command.
  * No pi imports: structural types only, so this file is unit-testable with node:test.
- * Token estimates use pi's own chars/4 heuristic (see estimateTokens in pi's compaction module).
+ * Per-message totals come from pi's estimateTokens; category splits use the same chars/4 heuristic.
  */
 
 export interface ContentBlock {
@@ -14,12 +14,11 @@ export interface ContentBlock {
 
 export interface MessageLike {
 	role: string;
+	/** pi's estimateTokens for the whole message. */
+	tokens: number;
 	customType?: string;
 	content?: string | ContentBlock[];
-	command?: string;
-	output?: string;
 	excludeFromContext?: boolean;
-	summary?: string;
 	toolName?: string;
 }
 
@@ -75,45 +74,7 @@ export interface Breakdown {
 	estimatedTotal: number;
 }
 
-/** pi's ESTIMATED_IMAGE_CHARS (4800) / 4. */
-export const ESTIMATED_IMAGE_TOKENS = 1200;
-
 const tokensOf = (text: string): number => Math.ceil(text.length / 4);
-
-function contentChars(content: string | ContentBlock[] | undefined): { chars: number; images: number } {
-	if (content === undefined) return { chars: 0, images: 0 };
-	if (typeof content === "string") return { chars: content.length, images: 0 };
-	let chars = 0;
-	let images = 0;
-	for (const block of content) {
-		if (block.type === "text" && block.text) chars += block.text.length;
-		else if (block.type === "image") images += 1;
-	}
-	return { chars, images };
-}
-
-function messageTokens(message: MessageLike): number {
-	switch (message.role) {
-		case "assistant": {
-			let chars = 0;
-			for (const block of message.content as ContentBlock[] | undefined ?? []) {
-				if (block.type === "text" && block.text) chars += block.text.length;
-				else if (block.type === "thinking" && block.thinking) chars += block.thinking.length;
-				else if (block.type === "toolCall") chars += (block.name?.length ?? 0) + JSON.stringify(block.arguments ?? null).length;
-			}
-			return Math.ceil(chars / 4);
-		}
-		case "bashExecution":
-			return tokensOf((message.command ?? "") + (message.output ?? ""));
-		case "branchSummary":
-		case "compactionSummary":
-			return tokensOf(message.summary ?? "");
-		default: {
-			const { chars, images } = contentChars(message.content);
-			return Math.ceil(chars / 4) + images * ESTIMATED_IMAGE_TOKENS;
-		}
-	}
-}
 
 const CATEGORY_ORDER = [
 	"system",
@@ -185,7 +146,7 @@ export function buildBreakdown(input: BreakdownInput): Breakdown {
 	// Native context messages. System checkpoints are already counted above.
 	for (const message of input.messages) {
 		if (message.role === "bashExecution" && message.excludeFromContext) continue;
-		const tokens = messageTokens(message);
+		const { tokens } = message;
 		switch (message.role) {
 			case "user":
 				add("user", tokens);

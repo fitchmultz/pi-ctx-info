@@ -1,14 +1,16 @@
 {
   "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "noEmit": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "noUncheckedIndexedAccess": true
+    "types": ["node"]
   },
-  "include": ["index.ts", "breakdown.ts", "breakdown.test.ts"]
+  "include": ["*.ts"]
 }

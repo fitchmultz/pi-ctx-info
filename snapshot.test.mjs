@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import test from "node:test";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const host = process.env.PI_HOST_INDEX ?? fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const { SessionManager } = await import(pathToFileURL(host));
-const { loadExtensions } = await import(pathToFileURL(join(dirname(host), "core/extensions/loader.js")));
+const { SessionManager, discoverAndLoadExtensions } = await import(pathToFileURL(host));
 const root = dirname(fileURLToPath(import.meta.url));
+const agentDir = mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-"));
 
 async function harness() {
-	const loaded = await loadExtensions([join(root, "index.ts")], root);
+	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], root, agentDir);
 	assert.deepEqual(loaded.errors, []);
 	const extension = loaded.extensions[0];
 	let prompt = "b".repeat(400);

@@ -1,4 +1,4 @@
-import { buildSessionContext, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { estimateTokens, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { type Breakdown, buildBreakdown, formatTokens } from "./breakdown.ts";
 
@@ -53,7 +53,8 @@ function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?:
 		tools,
 		// Use Pi's model context after edits, summaries, and handoffs.
 		// System checkpoints remain separate from the single prompt/tool accounting above.
-		messages: buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages,
+		messages: ctx.sessionManager.buildSessionProjection().messages
+			.map((message) => ({ ...message, tokens: estimateTokens(message) })),
 	});
 
 	const usage = ctx.getContextUsage();
@@ -74,15 +75,17 @@ class CtxOverlay {
 	private cachedExpanded: boolean | undefined;
 	private cachedHeader: string[] = [];
 	private cachedBody: string[] = [];
+	private readonly tui: TUI;
+	private readonly theme: Theme;
+	private readonly onClose: () => void;
+	private readonly onRefresh: () => Snapshot;
 
-	constructor(
-		snapshot: Snapshot,
-		private readonly tui: TUI,
-		private readonly theme: Theme,
-		private readonly onClose: () => void,
-		private readonly onRefresh: () => Snapshot,
-	) {
+	constructor(snapshot: Snapshot, tui: TUI, theme: Theme, onClose: () => void, onRefresh: () => Snapshot) {
 		this.snapshot = snapshot;
+		this.tui = tui;
+		this.theme = theme;
+		this.onClose = onClose;
+		this.onRefresh = onRefresh;
 	}
 
 	handleInput(data: string): void {

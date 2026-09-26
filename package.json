@@ -1,7 +1,7 @@
 {
   "name": "pi-ctx-info",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "description": "Pi extension: /ctx command showing a visual breakdown of what occupies the session context",
   "keywords": [
@@ -15,14 +15,19 @@
     "url": "git+https://github.com/fitchmultz/pi-ctx-info.git"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "packageManager": "npm@12.1.0",
   "pi": {
     "extensions": [
       "./index.ts"
     ]
   },
   "scripts": {
-    "check": "tsc --noEmit",
-    "check:compat": "npm run check && npm test",
+    "check": "tsc",
+    "check:lock": "node -e \"process.exit(/workos|socket-firewall/i.test(require('fs').readFileSync('package-lock.json','utf8')) ? 1 : 0)\"",
+    "check:compat": "npm run check:lock && npm run check && npm test",
     "test": "node --test breakdown.test.ts *.test.mjs"
   },
   "peerDependencies": {
@@ -38,8 +43,9 @@
     }
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.86.1",
-    "@earendil-works/pi-tui": "0.86.1",
-    "typescript": "^5.5.0"
+    "@earendil-works/pi-coding-agent": "0.87.1",
+    "@earendil-works/pi-tui": "0.87.1",
+    "@types/node": "24.19.0",
+    "typescript": "7.0.2"
   }
 }

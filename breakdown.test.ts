@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ESTIMATED_IMAGE_TOKENS, buildBreakdown } from "./breakdown.ts";
+import { buildBreakdown } from "./breakdown.ts";
 
 const base = {
 	systemPrompt: "x".repeat(400),
@@ -15,18 +15,15 @@ const base = {
 describe("buildBreakdown", () => {
 	it("excludes !! bash executions from totals and largest entries", () => {
 		const included = [
-			{ role: "bashExecution", command: "echo", output: "kept" },
-			{ role: "bashExecution", command: "echo", output: "kept", excludeFromContext: false },
+			{ role: "bashExecution", tokens: 2 },
+			{ role: "bashExecution", tokens: 2, excludeFromContext: false },
 		];
 		const expected = buildBreakdown({ ...base, messages: included });
 		assert.equal(expected.categories.find((c) => c.key === "bash")?.tokens, 4);
 		assert.equal(expected.largest.length, 2);
 		assert.deepEqual(buildBreakdown({
 			...base,
-			messages: [
-				...included,
-				{ role: "bashExecution", command: "echo", output: "x".repeat(40000), excludeFromContext: true },
-			],
+			messages: [...included, { role: "bashExecution", tokens: 10_000, excludeFromContext: true }],
 		}), expected);
 	});
 
@@ -35,6 +32,7 @@ describe("buildBreakdown", () => {
 			...base,
 			messages: [{
 				role: "assistant",
+				tokens: 400,
 				content: [
 					{ type: "text", text: "a".repeat(400) },
 					{ type: "thinking", thinking: "t".repeat(800) },
@@ -48,35 +46,19 @@ describe("buildBreakdown", () => {
 		assert.ok((byKey.get("toolcalls") ?? 0) >= 100);
 	});
 
-	it("counts images in tool results at the pi image estimate", () => {
-		const result = buildBreakdown({
-			...base,
-			messages: [{
-				role: "toolResult",
-				toolName: "read",
-				content: [{ type: "image" }, { type: "text", text: "x".repeat(40) }],
-			}],
-		});
-		const toolResults = result.categories.find((c) => c.key === "toolresults");
-		assert.equal(toolResults?.tokens, ESTIMATED_IMAGE_TOKENS + 10);
-	});
-
 	it("folds compaction and branch summaries into one summaries category", () => {
 		const result = buildBreakdown({
 			...base,
 			messages: [
-				{ role: "compactionSummary", summary: "s".repeat(400) },
-				{ role: "branchSummary", summary: "s".repeat(400) },
+				{ role: "compactionSummary", tokens: 100 },
+				{ role: "branchSummary", tokens: 100 },
 			],
 		});
-		const summaries = result.categories.find((c) => c.key === "summaries");
-		assert.equal(summaries?.tokens, 200);
+		assert.equal(result.categories.find((c) => c.key === "summaries")?.tokens, 200);
 	});
 
 	it("estimatedTotal is the sum of categories and largest is sorted desc, capped at 10", () => {
-		const messages = Array.from({ length: 12 }, (_, i) => ({
-			role: "user", content: "u".repeat(4 * (i + 1) * 10),
-		}));
+		const messages = Array.from({ length: 12 }, (_, i) => ({ role: "user", tokens: (i + 1) * 10 }));
 		const result = buildBreakdown({ ...base, messages });
 		const sum = result.categories.reduce((a, c) => a + c.tokens, 0);
 		assert.equal(result.estimatedTotal, sum);
