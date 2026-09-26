@@ -20,7 +20,8 @@ top-10 largest entries), `up`/`down`/`home`/`end` scroll the expanded view,
 
 ## Install
 
-Requires Pi 0.84.2 or later. Native fresh-context handoffs are shown on hosts that
+Requires Node.js 24.15 or later and official Pi 0.87.0 or later, or the
+`fitchmultz/pi` fork. Native fresh-context handoffs are shown on hosts that
 support them; ordinary context and compaction accounting also work on official Pi.
 
 ```sh
@@ -36,15 +37,20 @@ pi -e git:github.com/fitchmultz/pi-ctx-info
 ## Development
 
 ```sh
-npm install   # dev deps only (types + typescript); runtime deps come from pi itself
-npm run check:compat # type-check + all behavior tests
-npm run check # type-check
-npm test      # breakdown, native session fixtures, and overlay allocation tests
+npm ci --ignore-scripts  # dev deps only; Pi supplies runtime peers
+npm run check:compat     # lockfile check + type-check + all behavior tests
+npm run check            # type-check (TypeScript 7)
+npm test                 # breakdown, native session fixtures, and overlay allocation tests
 ```
 
-The development Pi cohort is pinned to official `0.86.1`; the declared `0.84.2` floor is separate from this current qualification baseline. Pi supplies runtime peers; no build or `prepare` is needed.
+Development uses Node 24 (`.nvmrc`) and npm 12. The Pi development cohort is pinned to official `0.87.1`. No build or `prepare` is needed.
+
+`check:lock` rejects a lockfile containing private-registry URLs. If you install through a
+registry mirror, point every `resolved` URL back at `https://registry.npmjs.org/` before committing.
 
 Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run the native session, snapshot, overlay, and checkpoint tests against that host. Typechecking resolves the checkout's `node_modules`, so host qualification must select that graph too, not only set the hook. Checkpoint tests use an isolated HOME without model calls and skip hosts without checkpoint support. `PI_COMPAT_HOST=fork` requires both checkpoint and fresh-context APIs; `PI_REQUIRE_CHECKPOINT=1` also remains supported for standalone checkpoint qualification. Ordinary compaction is always tested.
+
+CI qualifies official Pi and the current fork `main` on Node 24.15 (the minimum) and the latest Node 24 with the shared `fitchmultz/.github` qualifier: package contracts, a fresh Git install, and the real bundled Pi CLI.
 
 ## Accounting basis
 
@@ -66,6 +72,13 @@ is included in the observed prompt total but is not attributed to discovered fil
 Later context transformations and provider-payload rewrites are outside this estimate.
 Token figures use the chars/4 heuristic. Pi's native usage stays separate; the extension
 does not force the two figures to reconcile. Free space is also labeled as estimated.
+
+## 0.2.0
+
+- Require Node.js 24.15 or later and official Pi 0.87.0 or later.
+- Use Pi's own per-message token estimate, so message totals and the largest-entries list
+  match Pi's accounting (including images).
+- Develop with TypeScript 7 and npm 12.
 
 ## 0.1.1
 

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
@@ -6,14 +8,13 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 
 // Use the selected host's native loader, not a transformed copy of the component.
 const host = process.env.PI_HOST_INDEX ?? fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"));
-const dist = dirname(host);
-const { SessionManager } = await import(pathToFileURL(host));
-const { loadExtensions } = await import(pathToFileURL(join(dist, "core/extensions/loader.js")));
-const { getThemeByName } = await import(pathToFileURL(join(dist, "modes/interactive/theme/theme.js")));
+const { SessionManager, discoverAndLoadExtensions } = await import(pathToFileURL(host));
 const root = dirname(fileURLToPath(import.meta.url));
+const ansi = (value) => `\x1b[38;5;75m${value}\x1b[39m`;
+const theme = { fg: (_color, value) => ansi(value), bg: (_color, value) => `\x1b[48;5;236m${value}\x1b[49m`, bold: ansi };
 
 test("/ctx overlay respects narrow allocations through resize, expand and refresh", async () => {
-	const loaded = await loadExtensions([join(root, "index.ts")], root);
+	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], root, mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-")));
 	assert.deepEqual(loaded.errors, []);
 	loaded.runtime.getActiveTools = () => [];
 	loaded.runtime.getAllTools = () => [];
@@ -26,7 +27,7 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 		getContextUsage: () => undefined,
 		sessionManager: SessionManager.inMemory(),
 		ui: { custom: async (factory) => {
-			component = factory({ terminal, requestRender() {} }, getThemeByName("dark"), {}, () => {});
+			component = factory({ terminal, requestRender() {} }, theme, {}, () => {});
 		} },
 	};
 	await loaded.extensions[0].commands.get("ctx").handler("", ctx);
