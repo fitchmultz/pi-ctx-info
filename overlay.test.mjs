@@ -14,7 +14,8 @@ const ansi = (value) => `\x1b[38;5;75m${value}\x1b[39m`;
 const theme = { fg: (_color, value) => ansi(value), bg: (_color, value) => `\x1b[48;5;236m${value}\x1b[49m`, bold: ansi };
 
 test("/ctx overlay respects narrow allocations through resize, expand and refresh", async () => {
-	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], root, mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-")));
+	const agentDir = mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-"));
+	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], agentDir, agentDir);
 	assert.deepEqual(loaded.errors, []);
 	loaded.runtime.getActiveTools = () => [];
 	loaded.runtime.getAllTools = () => [];
@@ -25,7 +26,7 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 		getSystemPromptOptions: () => ({ contextFiles: [{ path: "/repo/configs/a-very-long-context-file-name-here.md", content: "x".repeat(400) }] }),
 		getSystemPrompt: () => "Context composition fixture 界".repeat(20),
 		getContextUsage: () => undefined,
-		sessionManager: SessionManager.inMemory(),
+		sessionManager: SessionManager.inMemory(agentDir),
 		ui: { custom: async (factory) => {
 			component = factory({ terminal, requestRender() {} }, theme, {}, () => {});
 		} },

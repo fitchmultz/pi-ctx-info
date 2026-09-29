@@ -70,6 +70,7 @@ test("native settled checkpoints preserve history and tool selection across relo
       cwd: home, encoding: "utf8", timeout: 20_000,
       env: {
         HOME: home, PATH: process.env.PATH ?? "", PI_OFFLINE: "1", PI_SKIP_VERSION_CHECK: "1",
+        TMPDIR: home, TMP: home, TEMP: home, XDG_CACHE_HOME: join(home, "cache"),
         PI_CODING_AGENT_DIR: join(home, "agent"), PI_HOST_INDEX: process.env.PI_HOST_INDEX,
         TEST_EXTENSION: fileURLToPath(new URL("./index.ts", import.meta.url)),
       },
