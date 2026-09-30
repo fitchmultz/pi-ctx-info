@@ -11,13 +11,13 @@ const root = dirname(fileURLToPath(import.meta.url));
 const agentDir = mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-"));
 
 async function harness() {
-	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], root, agentDir);
+	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], agentDir, agentDir);
 	assert.deepEqual(loaded.errors, []);
 	const extension = loaded.extensions[0];
 	let prompt = "b".repeat(400);
 	let active = ["read"];
 	const tools = [{ name: "read", description: "Read a file", parameters: {} }];
-	const sessionManager = SessionManager.inMemory();
+	const sessionManager = SessionManager.inMemory(agentDir);
 	const promptOptions = { contextFiles: [], skills: [], appendSystemPrompt: "" };
 	loaded.runtime.getActiveTools = () => active;
 	loaded.runtime.getAllTools = () => tools;
@@ -50,8 +50,8 @@ async function harness() {
 test("counts active namespaced tools in the breakdown", async () => {
 	const h = await harness();
 	assert.match(await h.show(), /Tool definitions\s+5\b/);
-	h.tools.push({ id: '["docs","search"]', namespace: "docs", name: "search", description: "x".repeat(400), parameters: {} });
-	h.setActive(['["docs","search"]']);
+	h.tools.push({ namespace: { name: "docs" }, name: "search", description: "x".repeat(400), parameters: {} });
+	h.setActive(["search"]);
 	assert.match(await h.show(), /Tool definitions\s+102\b/);
 });
 
@@ -116,33 +116,6 @@ test("does not reuse a prepared prompt after active tools, model, or session con
 	assert.match(await (await harness()).show(), /current Pi prompt/);
 });
 
-test("counts the native fresh-context handoff while excluding old conversation", async t => {
-	const h = await harness();
-	if (typeof h.sessionManager.appendContextWindow !== "function") {
-		assert.notEqual(process.env.PI_COMPAT_HOST, "fork", "Fork qualification requires native fresh context windows");
-		t.skip("This Pi host does not implement fresh context windows");
-		return;
-	}
-	h.sessionManager.appendMessage({ role: "system", content: "b".repeat(400), timestamp: 0 });
-	h.sessionManager.appendMessage({ role: "user", content: "old".repeat(2000), timestamp: 1 });
-	const boundary = h.sessionManager.appendContextWindow("h".repeat(400), 2000);
-	h.sessionManager.appendMessage({ role: "user", content: "kept", timestamp: 2 });
-	const shown = await h.show();
-	assert.match(shown, /context-window handoff\s+1\d\d\b/);
-	assert.match(shown, /User messages\s+1\b/);
-	assert.match(shown, /System prompt\s+100\b/);
-
-	h.sessionManager.appendCompaction("summary!", boundary, 2000);
-	assert.match(await h.show(), /context-window handoff\s+1\d\d\b/);
-	assert.match(await h.show(), /compactionSummary\s+2\b/);
-
-	h.sessionManager.appendContextWindow(undefined, null);
-	const fresh = await h.show();
-	assert.doesNotMatch(fresh, /User messages|compactionSummary/);
-	assert.match(fresh, /context-window handoff\s+2\d\b/);
-	assert.match(fresh, /System prompt\s+100\b/);
-});
-
 test("counts native compaction and retained messages without discarded history", async () => {
 	const h = await harness();
 	h.setActive([]);
@@ -152,7 +125,15 @@ test("counts native compaction and retained messages without discarded history",
 	const shown = await h.show();
 	assert.match(shown, /estimated composition: 103\b/);
 	assert.match(shown, /User messages\s+1\b/);
-	assert.match(shown, /Summaries \/ handoffs\s+2\b/);
+	assert.match(shown, /Summaries\s+2\b/);
+
+	h.sessionManager.appendCompaction("", undefined, 1000);
+	await h.event("session_compact");
+	const fresh = await h.show();
+	assert.match(fresh, /estimated composition: 100\b/);
+	assert.doesNotMatch(fresh, /User messages|Summaries/);
+	h.sessionManager.appendMessage({ role: "user", content: "next", timestamp: 2 });
+	assert.match(await h.show(), /User messages\s+1\b/);
 });
 
 test("does not count a message removed from model context", async t => {

@@ -52,9 +52,12 @@ describe("buildBreakdown", () => {
 			messages: [
 				{ role: "compactionSummary", tokens: 100 },
 				{ role: "branchSummary", tokens: 100 },
+				{ role: "custom", customType: "context-window", tokens: 50 },
 			],
 		});
 		assert.equal(result.categories.find((c) => c.key === "summaries")?.tokens, 200);
+		assert.equal(result.categories.find((c) => c.key === "custom")?.tokens, 50);
+		assert.ok(result.largest.some((entry) => entry.label === "extension: context-window" && entry.tokens === 50));
 	});
 
 	it("estimatedTotal is the sum of categories and largest is sorted desc, capped at 10", () => {

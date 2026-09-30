@@ -98,7 +98,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 	toolcalls: "Tool calls",
 	toolresults: "Tool results",
 	custom: "Extension messages",
-	summaries: "Summaries / handoffs",
+	summaries: "Summaries",
 	bash: "Bash executions",
 };
 
@@ -173,9 +173,8 @@ export function buildBreakdown(input: BreakdownInput): Breakdown {
 				largest.push({ label: "bash execution", tokens });
 				break;
 			case "custom": {
-				const handoff = message.customType === "context-window";
-				add(handoff ? "summaries" : "custom", tokens);
-				largest.push({ label: handoff ? "context-window handoff" : `extension: ${message.customType ?? "?"}`, tokens });
+				add("custom", tokens);
+				largest.push({ label: `extension: ${message.customType ?? "?"}`, tokens });
 				break;
 			}
 			case "branchSummary":

@@ -11,7 +11,7 @@ Type `/ctx` in the pi TUI. An overlay opens with:
 - an estimated composition bar (pi's chars/4 heuristic) split by category:
   system prompt (context files, skills), tool definitions, user messages,
   assistant text, thinking, tool calls, tool results, extension messages,
-  compaction/branch summaries, native context-window handoffs (when supported), bash executions
+  compaction/branch summaries, bash executions
 - the five largest individual entries in the session
 
 Keys: `e` expand/collapse (lists every context file, skill, and active tool, plus the
@@ -21,8 +21,8 @@ top-10 largest entries), `up`/`down`/`home`/`end` scroll the expanded view,
 ## Install
 
 Requires Node.js 24.15 or later and official Pi 0.87.0 or later, or the
-`fitchmultz/pi` fork. Native fresh-context handoffs are shown on hosts that
-support them; ordinary context and compaction accounting also work on official Pi.
+`fitchmultz/pi` fork. Current hosts use public compaction and retained-message
+accounting, including summary-free rollovers.
 
 ```sh
 pi install git:github.com/fitchmultz/pi-ctx-info
@@ -43,19 +43,19 @@ npm run check            # type-check (TypeScript 7)
 npm test                 # breakdown, native session fixtures, and overlay allocation tests
 ```
 
-Development uses Node 24 (`.nvmrc`) and npm 12. The Pi development cohort is pinned to official `0.87.1`. No build or `prepare` is needed.
+Development uses Node 24 (`.nvmrc`) and npm 12. The Pi development cohort is pinned to official `0.99.1`. No build or `prepare` is needed.
 
 `check:lock` rejects a lockfile containing private-registry URLs. If you install through a
 registry mirror, point every `resolved` URL back at `https://registry.npmjs.org/` before committing.
 
-Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run the native session, snapshot, overlay, and checkpoint tests against that host. Typechecking resolves the checkout's `node_modules`, so host qualification must select that graph too, not only set the hook. Checkpoint tests use an isolated HOME without model calls and skip hosts without checkpoint support. `PI_COMPAT_HOST=fork` requires both checkpoint and fresh-context APIs; `PI_REQUIRE_CHECKPOINT=1` also remains supported for standalone checkpoint qualification. Ordinary compaction is always tested.
+Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run the native session, snapshot, overlay, and checkpoint tests against that host. Typechecking resolves the checkout's `node_modules`, so host qualification must select that graph too, not only set the hook. Checkpoint tests use an isolated HOME without model calls and skip hosts without checkpoint support. `PI_COMPAT_HOST=fork` requires native checkpoint support; `PI_REQUIRE_CHECKPOINT=1` also remains supported for standalone checkpoint qualification. Ordinary compaction is always tested.
 
 CI qualifies official Pi and the current fork `main` on Node 24.15 (the minimum) and the latest Node 24 with the shared `fitchmultz/.github` qualifier: package contracts, a fresh Git install, and the real bundled Pi CLI.
 
 ## Accounting basis
 
 The composition uses Pi's current model-context projection and active tool definitions.
-It applies context edits, includes fresh-context markers and handoffs, and excludes
+It applies context edits, includes compaction and branch summaries, and excludes
 discarded conversation. System checkpoints are counted through the single system-prompt
 row, so they do not duplicate prompt or tool totals.
 
