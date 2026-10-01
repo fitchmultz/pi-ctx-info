@@ -48,15 +48,12 @@ async function harness() {
 	};
 }
 
-test("labels native context usage by its optional source", async () => {
+test("labels native context usage, unknown totals, and unavailable usage honestly", async () => {
 	const h = await harness();
 	const usage = { tokens: 1234, contextWindow: 128000, percent: 0.964 };
 	for (const [value, expected] of [
 		[usage, "1,234 (1.0% of window) · reported + estimated"],
-		[{ ...usage, source: "reported" }, "1,234 (1.0% of window) · provider-anchored (later content estimated)"],
-		[{ ...usage, source: "estimated" }, "1,234 (1.0% of window) · heuristic estimate"],
-		[{ ...usage, source: "unknown", tokens: null, percent: null }, "unknown"],
-		[{ ...usage, tokens: null, percent: null }, "unknown · reported + estimated"],
+		[{ ...usage, tokens: null, percent: null }, "unknown"],
 		[undefined, "unavailable"],
 	]) {
 		h.ctx.getContextUsage = () => value;
