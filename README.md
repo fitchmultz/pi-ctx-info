@@ -6,8 +6,9 @@ Pi extension that adds a `/ctx` command: a visual breakdown of what is occupying
 
 Type `/ctx` in the pi TUI. An overlay opens with:
 
-- Pi's current context usage (`ctx.getContextUsage()`), which combines applicable
-  reported usage with native estimates
+- Pi's current context usage (`ctx.getContextUsage()`), labeled provider-anchored
+  (later content estimated), heuristic, or unknown when Pi supplies the source;
+  hosts without a source retain the `reported + estimated` label
 - an estimated composition bar (pi's chars/4 heuristic) split by category:
   system prompt (context files, skills), tool definitions, user messages,
   assistant text, thinking, tool calls, tool results, extension messages,

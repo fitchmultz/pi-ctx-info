@@ -47,6 +47,23 @@ async function harness() {
 	};
 }
 
+test("labels native context usage by its optional source", async () => {
+	const h = await harness();
+	const usage = { tokens: 1234, contextWindow: 128000, percent: 0.964 };
+	for (const [value, expected] of [
+		[usage, "1,234 (1.0% of window) · reported + estimated"],
+		[{ ...usage, source: "reported" }, "1,234 (1.0% of window) · provider-anchored (later content estimated)"],
+		[{ ...usage, source: "estimated" }, "1,234 (1.0% of window) · heuristic estimate"],
+		[{ ...usage, source: "unknown", tokens: null, percent: null }, "unknown"],
+		[{ ...usage, tokens: null, percent: null }, "unknown · reported + estimated"],
+		[undefined, "unavailable"],
+	]) {
+		h.ctx.getContextUsage = () => value;
+		const line = (await h.show()).split("\n").find(line => line.includes("Pi context usage:"));
+		assert.equal(line.trim(), `Pi context usage: ${expected}`);
+	}
+});
+
 test("counts active namespaced tools in the breakdown", async () => {
 	const h = await harness();
 	assert.match(await h.show(), /Tool definitions\s+5\b/);

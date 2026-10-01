@@ -9,6 +9,7 @@ interface UsageInfo {
 	tokens: number | null;
 	contextWindow: number;
 	percent: number | null;
+	source?: "reported" | "estimated" | "unknown";
 }
 
 interface Snapshot {
@@ -168,7 +169,12 @@ class CtxOverlay {
 			const nativeUsage = usage.tokens === null
 				? "unknown"
 				: `${formatTokens(usage.tokens)} (${usage.percent?.toFixed(1)}% of window)`;
-			header.push(padLine(fg("muted", "Pi context usage: ") + nativeUsage + fg("dim", " · reported + estimated")));
+			const sourceLabel = usage.source === "reported"
+				? " · provider-anchored (later content estimated)"
+				: usage.source === "estimated"
+					? " · heuristic estimate"
+					: usage.source === "unknown" ? "" : " · reported + estimated";
+			header.push(padLine(fg("muted", "Pi context usage: ") + nativeUsage + fg("dim", sourceLabel)));
 		} else {
 			header.push(padLine(fg("dim", "Pi context usage: unavailable")));
 		}
