@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -13,8 +13,9 @@ const root = dirname(fileURLToPath(import.meta.url));
 const ansi = (value) => `\x1b[38;5;75m${value}\x1b[39m`;
 const theme = { fg: (_color, value) => ansi(value), bg: (_color, value) => `\x1b[48;5;236m${value}\x1b[49m`, bold: ansi };
 
-test("/ctx overlay respects narrow allocations through resize, expand and refresh", async () => {
+test("/ctx overlay respects narrow allocations through resize, expand and refresh", async t => {
 	const agentDir = mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-"));
+	t.after(() => rmSync(agentDir, { recursive: true, force: true }));
 	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], agentDir, agentDir);
 	assert.deepEqual(loaded.errors, []);
 	loaded.runtime.getActiveTools = () => [];
@@ -25,7 +26,7 @@ test("/ctx overlay respects narrow allocations through resize, expand and refres
 		mode: "tui",
 		getSystemPromptOptions: () => ({ contextFiles: [{ path: "/repo/configs/a-very-long-context-file-name-here.md", content: "x".repeat(400) }] }),
 		getSystemPrompt: () => "Context composition fixture 界".repeat(20),
-		getContextUsage: () => ({ source: "reported", tokens: 1234, contextWindow: 128000, percent: 0.964 }),
+		getContextUsage: () => ({ tokens: 1234, contextWindow: 128000, percent: 0.964 }),
 		sessionManager: SessionManager.inMemory(agentDir),
 		ui: { custom: async (factory) => {
 			component = factory({ terminal, requestRender() {} }, theme, {}, () => {});

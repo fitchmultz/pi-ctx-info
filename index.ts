@@ -1,20 +1,14 @@
 import { estimateTokens, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { getCurrentSystemPrompt, getCurrentTools } from "@earendil-works/pi-ai";
 import { Key, matchesKey, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { type Breakdown, buildBreakdown, formatTokens } from "./breakdown.ts";
 
 type Theme = ExtensionUIContext["theme"];
 type FgColor = Parameters<Theme["fg"]>[0];
 
-interface UsageInfo {
-	tokens: number | null;
-	contextWindow: number;
-	percent: number | null;
-	source?: "reported" | "estimated" | "unknown";
-}
-
 interface Snapshot {
 	breakdown: Breakdown;
-	usage: UsageInfo | undefined;
+	usage: ReturnType<ExtensionContext["getContextUsage"]>;
 	modelId: string;
 	contextWindow: number | undefined;
 	promptSource: "prepared" | "current";
@@ -23,6 +17,8 @@ interface Snapshot {
 interface PreparedPrompt {
 	key: string;
 	text: string;
+	tools: ReturnType<typeof activeTools>;
+	leaf: string | null;
 	settledPrompt?: string;
 }
 
@@ -38,20 +34,31 @@ function activeTools(pi: ExtensionAPI) {
 function promptKey(ctx: ExtensionContext, tools: ReturnType<typeof activeTools>): string {
 	return JSON.stringify([
 		ctx.sessionManager.getSessionId(), ctx.model?.provider, ctx.model?.id,
-		ctx.sessionManager.buildContextEntries()[0]?.id, tools,
+		tools,
 	]);
+}
+
+function sameContextBoundary(ctx: ExtensionContext, prepared: PreparedPrompt): boolean {
+	for (let id = ctx.sessionManager.getLeafId(); id !== prepared.leaf;) {
+		if (!id) return false;
+		const entry = ctx.sessionManager.getEntry(id);
+		if (!entry || entry.type === "compaction") return false;
+		id = entry.parentId;
+	}
+	return true;
 }
 
 function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?: PreparedPrompt): Snapshot {
 	const options = ctx.getSystemPromptOptions();
 	const tools = activeTools(pi);
 	const usePrepared = prepared?.key === promptKey(ctx, tools)
+		&& sameContextBoundary(ctx, prepared)
 		&& (prepared.settledPrompt === undefined || prepared.settledPrompt === ctx.getSystemPrompt());
 	const breakdown = buildBreakdown({
 		systemPrompt: usePrepared ? prepared.text : ctx.getSystemPrompt(),
 		contextFiles: options.contextFiles ?? [],
 		skills: (options.skills ?? []).map((skill) => ({ name: skill.name, description: skill.description })),
-		tools,
+		tools: usePrepared ? prepared.tools : tools,
 		// Use Pi's model context after edits, summaries, and handoffs.
 		// System checkpoints remain separate from the single prompt/tool accounting above.
 		messages: ctx.sessionManager.buildSessionProjection().messages
@@ -169,11 +176,7 @@ class CtxOverlay {
 			const nativeUsage = usage.tokens === null
 				? "unknown"
 				: `${formatTokens(usage.tokens)} (${usage.percent?.toFixed(1)}% of window)`;
-			const sourceLabel = usage.source === "reported"
-				? " · provider-anchored (later content estimated)"
-				: usage.source === "estimated"
-					? " · heuristic estimate"
-					: usage.source === "unknown" ? "" : " · reported + estimated";
+			const sourceLabel = usage.tokens === null ? "" : " · reported + estimated";
 			header.push(padLine(fg("muted", "Pi context usage: ") + nativeUsage + fg("dim", sourceLabel)));
 		} else {
 			header.push(padLine(fg("dim", "Pi context usage: unavailable")));
@@ -259,8 +262,13 @@ export default function (pi: ExtensionAPI) {
 	let prepared: PreparedPrompt | undefined;
 	// Run-only prompt additions disappear from getSystemPrompt() after settlement.
 	// Keep only the observed prompt in memory; never write sensitive guidance to the session.
-	pi.on("context", (_event, ctx) => {
-		prepared = { key: promptKey(ctx, activeTools(pi)), text: ctx.getSystemPrompt() };
+	pi.on("context_with_system", (event, ctx) => {
+		prepared = {
+			key: promptKey(ctx, activeTools(pi)),
+			text: getCurrentSystemPrompt(event.messages),
+			tools: getCurrentTools(event.messages),
+			leaf: ctx.sessionManager.getLeafId(),
+		};
 	});
 	pi.on("agent_settled", (_event, ctx) => {
 		if (prepared && prepared.settledPrompt === undefined) prepared.settledPrompt = ctx.getSystemPrompt();

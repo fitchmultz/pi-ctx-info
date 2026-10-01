@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { dirname, join } from "node:path";
@@ -9,6 +9,7 @@ const host = process.env.PI_HOST_INDEX ?? fileURLToPath(import.meta.resolve("@ea
 const { SessionManager, discoverAndLoadExtensions } = await import(pathToFileURL(host));
 const root = dirname(fileURLToPath(import.meta.url));
 const agentDir = mkdtempSync(join(tmpdir(), "pi-ctx-info-agent-"));
+test.after(() => rmSync(agentDir, { recursive: true, force: true }));
 
 async function harness() {
 	const loaded = await discoverAndLoadExtensions([join(root, "index.ts")], agentDir, agentDir);
@@ -40,22 +41,19 @@ async function harness() {
 		ctx, sessionManager, tools, promptOptions,
 		setPrompt(value) { prompt = value; },
 		setActive(value) { active = value; },
-		async event(name) {
-			for (const handler of extension.handlers.get(name) ?? []) await handler({ messages: [] }, ctx);
+		async event(name, messages = [{ role: "system", content: prompt, toolsAdded: tools.filter(tool => active.includes(tool.name)), timestamp: 0 }]) {
+			for (const handler of extension.handlers.get(name) ?? []) await handler({ messages }, ctx);
 		},
 		async show() { await extension.commands.get("ctx").handler("", ctx); return output; },
 	};
 }
 
-test("labels native context usage by its optional source", async () => {
+test("labels native context usage, unknown totals, and unavailable usage honestly", async () => {
 	const h = await harness();
 	const usage = { tokens: 1234, contextWindow: 128000, percent: 0.964 };
 	for (const [value, expected] of [
 		[usage, "1,234 (1.0% of window) · reported + estimated"],
-		[{ ...usage, source: "reported" }, "1,234 (1.0% of window) · provider-anchored (later content estimated)"],
-		[{ ...usage, source: "estimated" }, "1,234 (1.0% of window) · heuristic estimate"],
-		[{ ...usage, source: "unknown", tokens: null, percent: null }, "unknown"],
-		[{ ...usage, tokens: null, percent: null }, "unknown · reported + estimated"],
+		[{ ...usage, tokens: null, percent: null }, "unknown"],
 		[undefined, "unavailable"],
 	]) {
 		h.ctx.getContextUsage = () => value;
@@ -77,7 +75,7 @@ test("shows prepared request instructions after the run settles", async () => {
 	h.sessionManager.appendMessage({ role: "user", content: "question", timestamp: 1 });
 	h.setPrompt("b".repeat(400) + "g".repeat(800));
 	const before = structuredClone(h.sessionManager.getEntries());
-	await h.event("context");
+	await h.event("context_with_system");
 	assert.deepEqual(h.sessionManager.getEntries(), before, "observed guidance is never persisted");
 	h.setPrompt("b".repeat(400));
 	await h.event("agent_settled");
@@ -88,10 +86,33 @@ test("shows prepared request instructions after the run settles", async () => {
 	assert.doesNotMatch(shown, /reported \(last request\)/);
 });
 
+test("captures canonical system sections and prepared declarations without session scans", async () => {
+	const h = await harness();
+	h.sessionManager.appendMessage({
+		role: "system", content: "b".repeat(400), timestamp: 0,
+		toolsAdded: [{ name: "read", description: "x".repeat(400), parameters: {} }],
+	});
+	h.sessionManager.appendMessage({ role: "system", content: "", sections: { policy: "g".repeat(800) }, timestamp: 1 });
+	h.sessionManager.appendMessage({ role: "user", content: "question", timestamp: 2 });
+	const messages = h.sessionManager.buildSessionContext().messages;
+	const originals = {};
+	for (const name of ["buildContextEntries", "buildSessionProjection", "getBranch", "getEntries"]) {
+		originals[name] = h.sessionManager[name];
+		h.sessionManager[name] = () => assert.fail(`request capture must not call ${name}`);
+	}
+	await h.event("context_with_system", messages);
+	Object.assign(h.sessionManager, originals);
+	const shown = await h.show();
+	assert.match(shown, /System prompt\s+3\d\d\b/, "native named sections are included, not only ctx's base prompt");
+	assert.match(shown, /Tool definitions\s+102\b/, "prepared declarations rather than registration descriptions");
+	h.sessionManager.appendCompaction("", null, 1000);
+	assert.match(await h.show(), /System prompt\s+100\b/, "boundary drafts invalidate prepared state even without a session_compact notification");
+});
+
 test("uses the current prompt after an idle base-prompt edit", async () => {
 	const h = await harness();
 	h.setPrompt("b".repeat(400) + "g".repeat(800));
-	await h.event("context");
+	await h.event("context_with_system");
 	h.setPrompt("b".repeat(400));
 	await h.event("agent_settled");
 	assert.match(await h.show(), /System prompt\s+300\b/);
@@ -107,7 +128,7 @@ test("does not reuse a prepared prompt after active tools, model, or session con
 	const h = await harness();
 	async function capture() {
 		h.setPrompt("b".repeat(400) + "g".repeat(800));
-		await h.event("context");
+		await h.event("context_with_system");
 		h.setPrompt("b".repeat(400));
 		assert.match(await h.show(), /System prompt\s+300\b/);
 	}
