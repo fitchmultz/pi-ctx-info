@@ -73,7 +73,7 @@ Later full-context transformations and provider-payload rewrites are outside thi
 Token figures use the chars/4 heuristic. Pi's native usage stays separate; the extension
 does not force the two figures to reconcile. Free space is also labeled as estimated.
 
-## Next release
+## 0.3.0
 
 - Require Pi 1.0.0 and qualify its exact native SDK/CLI cohort.
 - Capture the canonical prepared system sections and tool declarations, without rebuilding session context on every request.

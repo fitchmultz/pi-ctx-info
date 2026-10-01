@@ -1,7 +1,7 @@
 {
   "name": "pi-ctx-info",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Pi extension: /ctx command showing a visual breakdown of what occupies the session context",
   "keywords": [
