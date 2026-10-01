@@ -43,7 +43,7 @@ npm run check            # type-check (TypeScript 7)
 npm test                 # breakdown, native session fixtures, and overlay allocation tests
 ```
 
-Development uses Node 24 (`.nvmrc`) and npm 12. The Pi development cohort is pinned to official `0.99.1`. No build or `prepare` is needed.
+Development uses Node 24 (`.nvmrc`) and npm 12. The Pi development cohort is pinned to official `0.99.2`. No build or `prepare` is needed.
 
 `check:lock` rejects a lockfile containing private-registry URLs. If you install through a
 registry mirror, point every `resolved` URL back at `https://registry.npmjs.org/` before committing.
