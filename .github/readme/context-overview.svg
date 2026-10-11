@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="620" viewBox="0 0 1600 620" role="img" aria-labelledby="title desc">
+  <title id="title">See what fills your Pi context</title>
+  <desc id="desc">Pi's current prompt and active tools, current context messages, and native usage feed the /ctx overlay. The overlay keeps Pi usage separate from category estimates and lists the largest message entries. Press e for details or r to refresh.</desc>
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#060A12"/>
+      <stop offset="0.52" stop-color="#0B1120"/>
+      <stop offset="1" stop-color="#080C16"/>
+    </linearGradient>
+    <radialGradient id="blueBloom" cx="0.18" cy="0.18" r="0.8">
+      <stop stop-color="#2563EB" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#2563EB" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="violetBloom" cx="0.82" cy="0.36" r="0.7">
+      <stop stop-color="#8B5CF6" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#172238" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#0E1525" stop-opacity="0.98"/>
+    </linearGradient>
+    <linearGradient id="focus" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#172554" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#312E81" stop-opacity="0.58"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#02040A" flood-opacity="0.54"/>
+    </filter>
+    <marker id="arrowBlue" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M1 1 11 6 1 11Z" fill="#60A5FA"/>
+    </marker>
+    <marker id="arrowGreen" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M1 1 11 6 1 11Z" fill="#34D399"/>
+    </marker>
+    <style>
+      .sans { font-family: Inter, ui-sans-serif, Arial, sans-serif; }
+      .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+      .label { font: 650 30px Inter, ui-sans-serif, Arial, sans-serif; fill: #F8FAFC; }
+      .copy { font: 450 26px Inter, ui-sans-serif, Arial, sans-serif; fill: #A9B8CF; }
+      .connector { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Solid canvas and restrained blooms use the fleet's dark design tokens. -->
+  <rect width="1600" height="620" fill="url(#canvas)"/>
+  <rect width="1600" height="620" fill="url(#blueBloom)"/>
+  <rect width="1600" height="620" fill="url(#violetBloom)"/>
+  <g class="sans">
+    <text x="64" y="84" font-size="48" font-weight="700" fill="#F8FAFC">See what fills your context</text>
+    <text x="64" y="128" class="copy">Open /ctx in Pi's interactive terminal UI.</text>
+  </g>
+
+  <!-- Three source paths: prompt/tools and messages feed estimates; native usage stays separate. -->
+  <g>
+    <path d="M628 242H690V306H778" class="connector" stroke="#60A5FA" marker-end="url(#arrowBlue)"/>
+    <path d="M628 358H730V344H778" class="connector" stroke="#60A5FA" marker-end="url(#arrowBlue)"/>
+    <path d="M628 474H778" class="connector" stroke="#34D399" marker-end="url(#arrowGreen)"/>
+  </g>
+
+  <!-- Current Pi session inputs. -->
+  <g filter="url(#shadow)">
+    <rect x="64" y="190" width="564" height="104" rx="22" fill="url(#glass)" stroke="#2A3851"/>
+    <rect x="64" y="306" width="564" height="104" rx="22" fill="url(#glass)" stroke="#2A3851"/>
+    <rect x="64" y="422" width="564" height="104" rx="22" fill="url(#glass)" stroke="#2A3851"/>
+  </g>
+  <g class="sans">
+    <path d="M92 216H112M92 226H112M92 236H104" fill="none" stroke="#60A5FA" stroke-width="3" stroke-linecap="round"/>
+    <text x="132" y="232" class="label">Prompt + active tools</text>
+    <text x="132" y="268" class="copy">Instructions, skills, tool definitions</text>
+    <path d="M92 330H116V346H102L96 352V346H92Z" fill="none" stroke="#A78BFA" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="132" y="348" class="label">Current context messages</text>
+    <text x="132" y="384" class="copy">Conversation, tool results, summaries</text>
+    <path d="M92 470V460M102 470V450M112 470V440" fill="none" stroke="#34D399" stroke-width="3" stroke-linecap="round"/>
+    <text x="132" y="464" class="label">Pi's context usage</text>
+    <text x="132" y="500" class="copy">Reported + estimated, or unknown</text>
+  </g>
+
+  <!-- Primary subject: illustrative overlay, no invented session quantities. -->
+  <rect x="788" y="190" width="748" height="336" rx="28" fill="url(#focus)" stroke="#6D7DFF" stroke-opacity="0.62" filter="url(#shadow)"/>
+  <g class="sans">
+    <text x="824" y="242" class="label">Your context overlay</text>
+    <rect x="1394" y="210" width="106" height="44" rx="22" fill="#0C1425" stroke="#38517A"/>
+    <text x="1447" y="240" text-anchor="middle" class="mono" font-size="26" fill="#93C5FD">/ctx</text>
+    <text x="824" y="298" class="copy">Category estimates</text>
+    <rect x="824" y="316" width="676" height="28" rx="8" fill="#263249"/>
+    <path d="M832 316H1052V344H832Q824 344 824 336V324Q824 316 832 316Z" fill="#60A5FA"/>
+    <rect x="1052" y="316" width="190" height="28" fill="#A78BFA"/>
+    <rect x="1242" y="316" width="124" height="28" fill="#34D399"/>
+    <text x="824" y="386" font-size="28" fill="#E2E8F0">Largest message entries</text>
+    <path d="M824 409H1500" stroke="#38517A"/>
+    <text x="824" y="452" font-size="27" fill="#6EE7B7">Pi usage shown separately</text>
+    <text x="824" y="490" class="copy">e: details</text>
+    <text x="1064" y="490" class="copy">r: refresh snapshot</text>
+  </g>
+  <text x="64" y="580" class="sans" font-size="26" fill="#91A0B8">Estimates help you find large entries. The bar is illustrative; actual values depend on your session.</text>
+</svg>
