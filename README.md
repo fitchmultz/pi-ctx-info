@@ -1,57 +1,68 @@
 # pi-ctx-info
 
-`/ctx` shows what's filling your [Pi](https://pi.dev) session's context window. Open it when a session is getting large and you want to find the messages or tool results taking up space.
+`pi-ctx-info` adds `/ctx` to [Pi](https://pi.dev). The command shows which messages, tool results, and instructions use your context window.
 
-![Pi's current prompt, active tools, context messages, and usage feed the /ctx overlay, which shows category estimates and the largest entries.](.github/readme/context-overview.png)
+![The /ctx overlay reads prompt, tool, message, and usage data from Pi. It shows category estimates and the largest entries.](.github/readme/context-overview.png)
 
-*Open `/ctx` to see Pi's usage alongside an estimated breakdown; press `e` to explore the details.*
+*The overlay keeps Pi usage separate from context estimates.*
 
 ## Quick start
 
-Requires Node.js 24.15+ and official Pi 1.0.0+ or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
+Use Node.js 24.15+ and official Pi 1.0.0+ or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
+
+Install the extension:
 
 ```sh
 pi install git:github.com/fitchmultz/pi-ctx-info
+```
+
+Start Pi:
+
+```sh
 pi
 ```
 
-Type `/ctx` in Pi's interactive terminal UI. To try it for one session without installing:
+Enter `/ctx` in the Pi interactive terminal.
+
+To use the extension for one session without installation, run:
 
 ```sh
 pi -e git:github.com/fitchmultz/pi-ctx-info
 ```
 
-Next: [explore the overlay](#explore-the-overlay) or [understand the numbers](#understand-the-numbers).
+[Controls](#controls) · [Estimates and limits](#estimates-and-limits)
 
-## Explore the overlay
+## Controls
 
-The overlay opens over your conversation. A color bar breaks the context into categories, with Pi's usage figure above it and the five largest message entries below. If `Tool results` looks large, check `largest entries` for big responses.
+The overlay shows a category bar and the five largest message entries.
 
-Press `e` to see every discovered context file, skill, and active tool. The expanded view also shows up to ten largest entries.
+The expanded overlay lists discovered context files, skills, and active tools. It shows up to ten largest entries.
 
 | Key | Action |
 | --- | --- |
 | `e` | Expand or collapse details |
 | `↑` / `↓` | Scroll |
 | `Home` / `End` | Jump to the start or end |
-| `r` | Recompute the snapshot |
+| `r` | Refresh the overlay |
 | `Esc` / `q` / `Enter` | Close the overlay |
 
-The overlay is available in the interactive TUI; print and RPC modes cannot show it.
+Print and RPC modes cannot show the overlay.
 
-## Understand the numbers
+## Estimates and limits
 
-Pi's usage figure and the composition estimate are separate. The breakdown uses Pi's characters-divided-by-four heuristic, so its category totals and estimated free space can differ from Pi's `reported + estimated` usage.
+Context estimates use Pi's characters-divided-by-four heuristic. They can differ from Pi usage. Free space is also an estimate.
 
-You may see `unknown` after a context boundary until fresh usage is available. If there's no model, usage is `unavailable`.
+Pi labels its usage `reported + estimated`. Usage can stay `unknown` after a context boundary until Pi has fresh usage. Usage is `unavailable` without a model.
 
-The prompt note tells you whether the estimate includes the last prepared request's instructions. After reload or resume, Pi may expose only its base prompt until another request is prepared, leaving some per-run extension guidance out of the estimate.
+After reload or resume, prompt estimates can omit per-run extension guidance. Check the prompt note in the overlay.
 
-The breakdown follows Pi's current model context, including retained messages and summaries. It applies context edits and leaves out discarded conversation. Later extension transformations and provider-payload rewrites are outside this estimate; the [accounting reference](docs/reference.md#accounting-basis) explains the details.
+Estimates use the current context and exclude discarded conversation. Later extension transformations and provider-payload rewrites remain outside these estimates.
+
+See the [accounting reference](docs/reference.md#accounting-basis) for details.
 
 ## More information
 
-See [development and compatibility testing](docs/development.md) to work on the extension, or the [reference and version history](docs/reference.md) for more detail. Found a problem? [Open an issue](https://github.com/fitchmultz/pi-ctx-info/issues).
+[Development and tests](docs/development.md) · [Reference and version history](docs/reference.md) · [Report an issue](https://github.com/fitchmultz/pi-ctx-info/issues)
 
 ## License
 
