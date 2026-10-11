@@ -1,97 +1,58 @@
 # pi-ctx-info
 
-Pi extension that adds a `/ctx` command: a visual breakdown of what is occupying your current pi session context.
+`/ctx` shows what's filling your [Pi](https://pi.dev) session's context window. Open it when a session is getting large and you want to find the messages or tool results taking up space.
 
-## Usage
+![Pi's current prompt, active tools, context messages, and usage feed the /ctx overlay, which shows category estimates and the largest entries.](.github/readme/context-overview.png)
 
-Type `/ctx` in the pi TUI. An overlay opens with:
+*Open `/ctx` to see Pi's usage alongside an estimated breakdown; press `e` to explore the details.*
 
-- Pi's current context usage (`ctx.getContextUsage()`), labeled `reported + estimated`,
-  `unknown` after a boundary without fresh usage, or `unavailable` without a model
-- an estimated composition bar (pi's chars/4 heuristic) split by category:
-  system prompt (context files, skills), tool definitions, user messages,
-  assistant text, thinking, tool calls, tool results, extension messages,
-  compaction/branch summaries, bash executions
-- the five largest individual entries in the session
+## Quick start
 
-Keys: `e` expand/collapse (lists every context file, skill, and active tool, plus the
-top-10 largest entries), `up`/`down`/`home`/`end` scroll the expanded view,
-`esc`/`q`/`enter` close, `r` recompute.
-
-## Install
-
-Requires Node.js 24.15 or later and official Pi 1.0.0 or later, or the
-`fitchmultz/pi` fork. Current hosts use public compaction and retained-message
-accounting, including summary-free rollovers.
+Requires Node.js 24.15+ and official Pi 1.0.0+ or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
 
 ```sh
 pi install git:github.com/fitchmultz/pi-ctx-info
+pi
 ```
 
-Or try it without installing:
+Type `/ctx` in Pi's interactive terminal UI. To try it for one session without installing:
 
 ```sh
 pi -e git:github.com/fitchmultz/pi-ctx-info
 ```
 
-## Development
+Next: [explore the overlay](#explore-the-overlay) or [understand the numbers](#understand-the-numbers).
 
-```sh
-npm ci --ignore-scripts  # dev deps only; Pi supplies runtime peers
-npm run check:compat     # lockfile check + type-check + all behavior tests
-npm run check            # type-check (TypeScript 7)
-npm test                 # breakdown, native session fixtures, and overlay allocation tests
-```
+## Explore the overlay
 
-Development uses Node 24 (`.nvmrc`) and npm 12. The Pi development cohort is pinned to official `1.0.0` (the eight-package Pi cohort, with host TypeBox `1.3.27`). No build or `prepare` is needed.
+The overlay opens over your conversation. A color bar breaks the context into categories, with Pi's usage figure above it and the five largest message entries below. If `Tool results` looks large, check `largest entries` for big responses.
 
-`check:lock` rejects a lockfile containing private-registry URLs. If you install through a
-registry mirror, point every `resolved` URL back at `https://registry.npmjs.org/` before committing.
+Press `e` to see every discovered context file, skill, and active tool. The expanded view also shows up to ten largest entries.
 
-Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run native snapshot and overlay tests against that host. Typechecking resolves the checkout's `node_modules`, so host qualification must select that graph too, not only set the hook. Both 1.0 targets use official usage/compaction APIs. Former fork-only usage-source labels and native checkpoint tests are retired with those unsupported APIs; ordinary compaction, retained messages and context edits remain tested.
+| Key | Action |
+| --- | --- |
+| `e` | Expand or collapse details |
+| `↑` / `↓` | Scroll |
+| `Home` / `End` | Jump to the start or end |
+| `r` | Recompute the snapshot |
+| `Esc` / `q` / `Enter` | Close the overlay |
 
-CI qualifies official Pi and the current fork `main` on Node 24.15 (the minimum) and the latest Node 24 with the shared `fitchmultz/.github` qualifier: package contracts, a fresh Git install, and the real bundled Pi CLI.
+The overlay is available in the interactive TUI; print and RPC modes cannot show it.
 
-## Accounting basis
+## Understand the numbers
 
-The composition uses Pi's current model-context projection and active tool definitions.
-It applies context edits, includes compaction and branch summaries, and excludes
-discarded conversation. System checkpoints are counted through the single system-prompt
-row, so they do not duplicate prompt or tool totals.
+Pi's usage figure and the composition estimate are separate. The breakdown uses Pi's characters-divided-by-four heuristic, so its category totals and estimated free space can differ from Pi's `reported + estimated` usage.
 
-The system/tool rows use Pi's canonical prompt and tool-delta replay at the last native `context_with_system` event, including
-per-run instructions from extensions such as Posthorse and ATB. That prompt is kept
-only in memory. The overlay identifies this basis and falls back to Pi's current
-prompt after a session, branch, model, tool, base-prompt, or context-boundary
-change. After reload or resume, idle Pi may expose only its base prompt until
-another request is prepared; the overlay makes that limitation explicit. Refresh
-recomputes current entries/tools.
+You may see `unknown` after a context boundary until fresh usage is available. If there's no model, usage is `unavailable`.
 
-Expanded context-file rows describe discovered files. Guidance injected by extensions
-is included in the observed prompt total but is not attributed to discovered files.
-Later full-context transformations and provider-payload rewrites are outside this estimate. Request capture does not query session projections; accounting and append-boundary validation run only when opening or refreshing the overlay.
-Token figures use the chars/4 heuristic. Pi's native usage stays separate; the extension
-does not force the two figures to reconcile. Free space is also labeled as estimated.
+The prompt note tells you whether the estimate includes the last prepared request's instructions. After reload or resume, Pi may expose only its base prompt until another request is prepared, leaving some per-run extension guidance out of the estimate.
 
-## 0.3.0
+The breakdown follows Pi's current model context, including retained messages and summaries. It applies context edits and leaves out discarded conversation. Later extension transformations and provider-payload rewrites are outside this estimate; the [accounting reference](docs/reference.md#accounting-basis) explains the details.
 
-- Require Pi 1.0.0 and qualify its exact native SDK/CLI cohort.
-- Capture the canonical prepared system sections and tool declarations, without rebuilding session context on every request.
-- Keep full current-entry accounting and fresh model limits at explicit overlay refresh. Validate appends for retain-none boundary drafts before reusing a prepared prompt.
-- Preserve approximate/unknown labels, keyboard controls, options, and narrow/fullscreen/regular rendering. Retire dropped fork-only usage-source and checkpoint assumptions.
+## More information
 
-## 0.2.0
+See [development and compatibility testing](docs/development.md) to work on the extension, or the [reference and version history](docs/reference.md) for more detail. Found a problem? [Open an issue](https://github.com/fitchmultz/pi-ctx-info/issues).
 
-- Require Node.js 24.15 or later and official Pi 0.87.0 or later.
-- Use Pi's own per-message token estimate, so message totals and the largest-entries list
-  match Pi's accounting (including images).
-- Develop with TypeScript 7 and npm 12.
+## License
 
-## 0.1.1
-
-- Respect narrow TUI allocations, including resize, expanded view, and refresh.
-- Include native context-window framing and handoffs without counting discarded
-  history or duplicating the prompt/tool checkpoint.
-- Retain observed per-run guidance in the system estimate after a request settles.
-- Identify the prompt basis and distinguish native usage from estimated composition
-  and free space.
+[MIT](LICENSE) · Copyright © 2026 Mitch Fultz.
