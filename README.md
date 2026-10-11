@@ -1,6 +1,6 @@
 # pi-ctx-info
 
-See what is filling your [Pi](https://pi.dev) session's context window. This extension adds `/ctx`, a visual breakdown that helps you spot large tool results, messages, and instructions before deciding what to trim.
+`/ctx` shows what's filling your [Pi](https://pi.dev) session's context window. Open it when a session is getting large and you want to find the messages or tool results taking up space.
 
 ![Pi's current prompt, active tools, context messages, and usage feed the /ctx overlay, which shows category estimates and the largest entries.](.github/readme/context-overview.png)
 
@@ -8,7 +8,7 @@ See what is filling your [Pi](https://pi.dev) session's context window. This ext
 
 ## Quick start
 
-Requires **Node.js 24.15+** and **official Pi 1.0.0+** or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
+Requires Node.js 24.15+ and official Pi 1.0.0+ or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
 
 ```sh
 pi install git:github.com/fitchmultz/pi-ctx-info
@@ -25,9 +25,9 @@ Next: [explore the overlay](#explore-the-overlay) or [understand the numbers](#u
 
 ## Explore the overlay
 
-The overlay shows Pi's context usage, an estimated composition bar, and the five largest message entries. Categories cover the system prompt, active tool definitions, user messages, assistant text, thinking, tool calls and results, extension messages, compaction and branch summaries, and bash executions.
+The overlay opens over your conversation. A color bar breaks the context into categories, with Pi's usage figure above it and the five largest message entries below. If `Tool results` looks large, check `largest entries` for big responses.
 
-For example, if **Tool results** takes a large share, check **largest entries** to see which tool result is contributing most. Press `e` to list every discovered context file, skill, and active tool, plus up to ten largest entries.
+Press `e` to see every discovered context file, skill, and active tool. The expanded view also shows up to ten largest entries.
 
 | Key | Action |
 | --- | --- |
@@ -41,19 +41,17 @@ The overlay is available in the interactive TUI; print and RPC modes cannot show
 
 ## Understand the numbers
 
-- **Pi context usage** comes from Pi and is labeled `reported + estimated`. It can be `unknown` after a context boundary until fresh usage is available, or `unavailable` when there is no model.
-- **Estimated composition** uses Pi's characters-divided-by-four heuristic. Whole-message estimates use Pi's own estimator, including its image accounting. Category totals and estimated free space can differ from Pi's usage figure.
-- **Prompt basis** is shown in the overlay. It uses the last prepared request's prompt when still applicable, including per-run extension guidance. After reload or resume, Pi may expose only its base prompt until another request is prepared.
+Pi's usage figure and the composition estimate are separate. The breakdown uses Pi's characters-divided-by-four heuristic, so its category totals and estimated free space can differ from Pi's `reported + estimated` usage.
 
-The breakdown follows Pi's current model context: it includes retained messages and summaries, applies context edits, and leaves out discarded conversation. Later extension transformations and provider-payload rewrites can change what is sent beyond this estimate.
+You may see `unknown` after a context boundary until fresh usage is available. If there's no model, usage is `unavailable`.
 
-See the [accounting reference](docs/reference.md#accounting-basis) for the exact boundaries and attribution rules.
+The prompt note tells you whether the estimate includes the last prepared request's instructions. After reload or resume, Pi may expose only its base prompt until another request is prepared, leaving some per-run extension guidance out of the estimate.
+
+The breakdown follows Pi's current model context, including retained messages and summaries. It applies context edits and leaves out discarded conversation. Later extension transformations and provider-payload rewrites are outside this estimate; the [accounting reference](docs/reference.md#accounting-basis) explains the details.
 
 ## More information
 
-- [Development and compatibility testing](docs/development.md)
-- [Accounting reference and version history](docs/reference.md)
-- [Report an issue](https://github.com/fitchmultz/pi-ctx-info/issues)
+See [development and compatibility testing](docs/development.md) to work on the extension, or the [reference and version history](docs/reference.md) for more detail. Found a problem? [Open an issue](https://github.com/fitchmultz/pi-ctx-info/issues).
 
 ## License
 

@@ -2,6 +2,12 @@
 
 [Back to the README](../README.md)
 
+## Overlay categories
+
+The composition groups entries into system prompt (with context files and skills), active tool definitions, user messages, assistant text, thinking, tool calls, tool results, extension messages, compaction and branch summaries, and bash executions. Categories with no tokens are omitted.
+
+The default largest-entries list shows five message entries. Expanded view shows up to ten and lists every discovered context file, skill, and active tool.
+
 ## Accounting basis
 
 The composition uses Pi's current model-context projection and active tool definitions. It applies context edits, includes compaction and branch summaries, and excludes discarded conversation. System checkpoints are counted through the single system-prompt row, so they do not duplicate prompt or tool totals.
