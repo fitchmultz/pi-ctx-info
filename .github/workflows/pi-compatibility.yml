@@ -14,10 +14,16 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PI_AUTOMATION_REF: a0fdc5780053237ac4ee24f49976ee5449e3aaab # v1.0.1
+  PI_AUTOMATION_REF: 9b08d65d70a01c74c4e01477ccf9473e86be33ee # main
 
 jobs:
+  resolve:
+    uses: fitchmultz/.github/.github/workflows/resolve-hosts.yml@9b08d65d70a01c74c4e01477ccf9473e86be33ee # main
+    with:
+      automation-ref: 9b08d65d70a01c74c4e01477ccf9473e86be33ee # main
+
   qualify:
+    needs: resolve
     name: ubuntu-latest / Node ${{ matrix.node }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -38,11 +44,10 @@ jobs:
         with:
           path: extension
           persist-credentials: false
-      # The fork tracks main because that is the build this extension must keep working with.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: fitchmultz/pi
-          ref: main
+          ref: ${{ needs.resolve.outputs.fork-ref }}
           path: fork
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -51,44 +56,54 @@ jobs:
           check-latest: true
           package-manager-cache: false
       - name: Build fork main
-        id: fork
         working-directory: fork
         env:
+          FORK_REF: ${{ needs.resolve.outputs.fork-ref }}
           PI_OFFLINE: '1'
           PI_TELEMETRY: '0'
         run: |
           npm install --global "$(node -p 'require("../automation/package.json").packageManager')"
-          ref=$(git rev-parse HEAD)
-          echo "Fork ref: $ref"
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Fork ref: $FORK_REF"
           npm ci --ignore-scripts
           npm run hydrate:model-data
           git diff --exit-code
           npm run build:offline
-          node ../automation/scripts/pack-fork.mjs . "$RUNNER_TEMP/fork-package" "$ref"
+          node ../automation/scripts/pack-fork.mjs . "$RUNNER_TEMP/fork-package" "$FORK_REF"
           git diff --exit-code
       - name: Use the extension npm version
         run: npm install --global "$(node -p 'require("./extension/package.json").packageManager')"
       - name: Qualify official Pi
+        env:
+          OFFICIAL_VERSION: ${{ needs.resolve.outputs.official-version }}
         run: |
-          version=$(node -p 'require("./extension/package.json").devDependencies["@earendil-works/pi-coding-agent"]')
           node automation/scripts/qualify.mjs --repo pi-ctx-info --source "$GITHUB_WORKSPACE/extension" \
-            --host official --target "$version" --output "$RUNNER_TEMP/official-evidence"
+            --host official --target "$OFFICIAL_VERSION" --output "$RUNNER_TEMP/official-evidence"
       - name: Qualify fork Pi
         env:
-          PI_COMPAT_FORK_REF: ${{ steps.fork.outputs.ref }}
+          PI_COMPAT_FORK_REF: ${{ needs.resolve.outputs.fork-ref }}
         run: |
           node automation/scripts/qualify.mjs --repo pi-ctx-info --source "$GITHUB_WORKSPACE/extension" \
             --host fork --target "$RUNNER_TEMP/fork-package" --output "$RUNNER_TEMP/fork-evidence"
+      - name: Retain qualification evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: host-qualification-ubuntu-latest-${{ matrix.node }}
+          path: |
+            ${{ runner.temp }}/official-evidence
+            ${{ runner.temp }}/fork-evidence
+          if-no-files-found: error
+          retention-days: 3
 
   compatibility:
     name: compatibility / compatibility
     if: always()
-    needs: qualify
+    needs: [resolve, qualify]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
       - name: Require every lane
         env:
+          RESOLVE: ${{ needs.resolve.result }}
           QUALIFY: ${{ needs.qualify.result }}
-        run: test "$QUALIFY" = success
+        run: test "$RESOLVE" = success && test "$QUALIFY" = success
