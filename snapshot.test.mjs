@@ -62,6 +62,52 @@ test("labels native context usage, unknown totals, and unavailable usage honestl
 	}
 });
 
+test("only fingerprints comparisons with a prepared prompt, preserving tool accounting and reset output", async t => {
+	const h = await harness();
+	async function measuredShow() {
+		let keys = 0;
+		let schemas = 0;
+		const stringify = JSON.stringify;
+		const spy = t.mock.method(JSON, "stringify", function (value, ...args) {
+			if (Array.isArray(value) && value.length === 4
+				&& value[0] === h.sessionManager.getSessionId()
+				&& value[1] === h.ctx.model.provider && value[2] === h.ctx.model.id
+				&& Array.isArray(value[3])) keys += 1;
+			if (h.tools.some(tool => value === tool.parameters)) schemas += 1;
+			return stringify.call(this, value, ...args);
+		});
+		try {
+			const output = await h.show();
+			return { output, counts: [keys, schemas] };
+		} finally {
+			spy.mock.restore();
+		}
+	}
+	const current = await h.show();
+	const fresh = await measuredShow();
+	assert.deepEqual(fresh.counts, [0, h.tools.length]);
+	assert.equal(fresh.output, current);
+	assert.match(current, /current Pi prompt/);
+
+	for (const event of ["session_start", "session_tree", "session_compact", "model_select"]) {
+		h.setPrompt("b".repeat(400) + "g".repeat(800));
+		await h.event("context_with_system");
+		h.setPrompt("b".repeat(400));
+		await h.event("agent_settled");
+		const prepared = await h.show();
+		const control = await measuredShow();
+		assert.deepEqual(control.counts, [1, h.tools.length], `${event}: prepared comparison retained`);
+		assert.equal(control.output, prepared);
+		assert.match(prepared, /last prepared request prompt/);
+		assert.match(prepared, /System prompt\s+300\b/);
+
+		await h.event(event);
+		const cleared = await measuredShow();
+		assert.deepEqual(cleared.counts, [0, h.tools.length], `${event}: no comparison after reset`);
+		assert.equal(cleared.output, current, `${event}: unchanged current prompt output`);
+	}
+});
+
 test("counts active namespaced tools in the breakdown", async () => {
 	const h = await harness();
 	assert.match(await h.show(), /Tool definitions\s+5\b/);

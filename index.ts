@@ -51,7 +51,7 @@ function sameContextBoundary(ctx: ExtensionContext, prepared: PreparedPrompt): b
 function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?: PreparedPrompt): Snapshot {
 	const options = ctx.getSystemPromptOptions();
 	const tools = activeTools(pi);
-	const usePrepared = prepared?.key === promptKey(ctx, tools)
+	const usePrepared = prepared !== undefined && prepared.key === promptKey(ctx, tools)
 		&& sameContextBoundary(ctx, prepared)
 		&& (prepared.settledPrompt === undefined || prepared.settledPrompt === ctx.getSystemPrompt());
 	const breakdown = buildBreakdown({
