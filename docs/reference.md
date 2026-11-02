@@ -26,7 +26,11 @@ Current hosts use public compaction and retained-message accounting, including s
 
 ## Version history
 
-These notes describe past releases. Current installation requirements are in the [README](../README.md#quick-start).
+These notes describe the next release and past releases. Current installation requirements are in the [README](../README.md#quick-start).
+
+### Next release
+
+- Require Pi 1.5.0 and qualify its exact native SDK/CLI cohort.
 
 ### 0.3.0
 
