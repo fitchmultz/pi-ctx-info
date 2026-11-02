@@ -26,11 +26,15 @@ Current hosts use public compaction and retained-message accounting, including s
 
 ## Version history
 
-These notes describe past releases. Current installation requirements are in the [README](../README.md#quick-start).
+These notes describe the next release and past releases. Current installation requirements are in the [README](../README.md#quick-start).
+
+### Next release
+
+- Require Pi 1.5.0 and qualify its exact native SDK/CLI cohort.
 
 ### 0.3.0
 
-- Require Pi 1.5.0 and qualify its exact native SDK/CLI cohort.
+- Require Pi 1.0.0 and qualify its exact native SDK/CLI cohort.
 - Capture the canonical prepared system sections and tool declarations, without rebuilding session context on every request.
 - Keep full current-entry accounting and fresh model limits at explicit overlay refresh. Validate appends for retain-none boundary drafts before reusing a prepared prompt.
 - Preserve approximate/unknown labels, keyboard controls, options, and narrow/fullscreen/regular rendering. Retire dropped fork-only usage-source and checkpoint assumptions.

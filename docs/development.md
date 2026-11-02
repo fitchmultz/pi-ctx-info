@@ -28,7 +28,7 @@ The repository follows the [Strict Oxlint and Oxfmt Engineering Standard](qualit
 
 Set `PI_HOST_INDEX` to the selected installed host's absolute `dist/index.js` path to run native snapshot and overlay tests against that host.
 
-Typechecking resolves the checkout's `node_modules`, so host qualification must select that dependency graph too, rather than only setting the hook. Both 1.0 targets use official usage and compaction APIs.
+Typechecking resolves the checkout's `node_modules`, so host qualification must select that dependency graph too, rather than only setting the hook. Both targets use official usage and compaction APIs.
 
 Former fork-only usage-source labels and native checkpoint tests were retired with those unsupported APIs. Ordinary compaction, retained messages, and context edits remain tested.
 
