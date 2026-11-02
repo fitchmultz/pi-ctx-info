@@ -1,56 +1,65 @@
 {
-  "name": "pi-ctx-info",
-  "private": true,
-  "version": "0.3.0",
-  "type": "module",
-  "description": "Pi extension: /ctx command showing a visual breakdown of what occupies the session context",
-  "keywords": [
-    "pi-package",
-    "pi-extension",
-    "context",
-    "tokens"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/fitchmultz/pi-ctx-info.git"
-  },
-  "license": "MIT",
-  "engines": {
-    "node": ">=24.15.0"
-  },
-  "packageManager": "npm@12.2.0",
-  "pi": {
-    "extensions": [
-      "./index.ts"
-    ]
-  },
-  "scripts": {
-    "check": "tsc",
-    "check:lock": "node -e \"process.exit(/workos|socket-firewall/i.test(require('fs').readFileSync('package-lock.json','utf8')) ? 1 : 0)\"",
-    "check:compat": "npm run check:lock && npm run check && npm test",
-    "test": "node --test breakdown.test.ts *.test.mjs"
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-ai": "*",
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*"
-  },
-  "peerDependenciesMeta": {
-    "@earendil-works/pi-ai": {
-      "optional": true
-    },
-    "@earendil-works/pi-coding-agent": {
-      "optional": true
-    },
-    "@earendil-works/pi-tui": {
-      "optional": true
-    }
-  },
-  "devDependencies": {
-    "@earendil-works/pi-ai": "1.0.0",
-    "@earendil-works/pi-coding-agent": "1.0.0",
-    "@earendil-works/pi-tui": "1.0.0",
-    "@types/node": "24.19.0",
-    "typescript": "7.0.2"
-  }
+	"name": "pi-ctx-info",
+	"private": true,
+	"version": "0.3.0",
+	"type": "module",
+	"description": "Pi extension: /ctx command showing a visual breakdown of what occupies the session context",
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"context",
+		"tokens"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/fitchmultz/pi-ctx-info.git"
+	},
+	"license": "MIT",
+	"engines": {
+		"node": ">=24.15.0"
+	},
+	"packageManager": "npm@12.2.0",
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"scripts": {
+		"check": "tsc",
+		"check:lock": "node -e \"process.exit(/workos|socket-firewall/i.test(require('fs').readFileSync('package-lock.json','utf8')) ? 1 : 0)\"",
+		"check:policy": "node scripts/verify-quality-policy.ts",
+		"check:compat": "node scripts/run-checks.ts",
+		"lint": "oxlint --deny-warnings .",
+		"lint:agent": "oxlint --deny-warnings --format=agent .",
+		"lint:fix": "oxlint --fix .",
+		"format": "oxfmt --write .",
+		"format:check": "oxfmt --check .",
+		"test": "node --test *.test.ts"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"peerDependenciesMeta": {
+		"@earendil-works/pi-ai": {
+			"optional": true
+		},
+		"@earendil-works/pi-coding-agent": {
+			"optional": true
+		},
+		"@earendil-works/pi-tui": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@earendil-works/pi-ai": "1.0.0",
+		"@earendil-works/pi-coding-agent": "1.0.0",
+		"@earendil-works/pi-tui": "1.0.0",
+		"@types/node": "24.19.0",
+		"oxfmt": "0.75.0",
+		"oxlint": "1.90.0",
+		"oxlint-tsgolint": "7.0.2005",
+		"typescript": "7.0.2"
+	}
 }

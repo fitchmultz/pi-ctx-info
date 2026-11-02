@@ -102,99 +102,152 @@ const CATEGORY_LABELS: Record<string, string> = {
 	bash: "Bash executions",
 };
 
+type AddTokens = (key: string, tokens: number) => void;
+
+/** Compact and full sub-rows for the system-prompt category (context files and skills). */
+function buildSystemRows(input: BreakdownInput): { subs: SubRow[]; expandedSubs: SubRow[] } {
+	const fileRows = input.contextFiles
+		.map((f) => ({ label: f.path.split("/").slice(-2).join("/"), tokens: tokensOf(f.content) }))
+		.sort((a, b) => b.tokens - a.tokens);
+	const skillRows = input.skills
+		.map((s) => ({ label: s.name, tokens: tokensOf(s.name + (s.description ?? "")) }))
+		.sort((a, b) => b.tokens - a.tokens);
+	const subs: SubRow[] = [];
+	if (fileRows.length > 0) {
+		subs.push({
+			label: `context files ×${fileRows.length}`,
+			tokens: fileRows.reduce((a, b) => a + b.tokens, 0),
+		});
+	}
+	if (skillRows.length > 0) {
+		subs.push({
+			label: `skills ×${skillRows.length}`,
+			tokens: skillRows.reduce((a, b) => a + b.tokens, 0),
+		});
+	}
+	return { subs, expandedSubs: [...fileRows, ...skillRows] };
+}
+
+/** Sub-rows and total for the active tool definitions. */
+function buildToolRows(input: BreakdownInput): {
+	subs: SubRow[];
+	expandedSubs: SubRow[];
+	total: number;
+} {
+	const toolRows = input.tools
+		.map((t) => ({
+			label: t.name,
+			tokens: tokensOf(t.name + (t.description ?? "") + JSON.stringify(t.parameters ?? {})),
+		}))
+		.sort((a, b) => b.tokens - a.tokens);
+	return {
+		subs: toolRows.slice(0, 3).map((r) => ({ label: r.label, tokens: r.tokens })),
+		expandedSubs: toolRows,
+		total: toolRows.reduce((a, b) => a + b.tokens, 0),
+	};
+}
+
+/** Split one assistant message into text, thinking, and tool-call categories. */
+function accountAssistantBlocks(content: MessageLike["content"], add: AddTokens): void {
+	if (!Array.isArray(content)) {
+		return;
+	}
+	for (const block of content) {
+		if (block.type === "text" && block.text !== undefined) {
+			add("assistant", tokensOf(block.text));
+		} else if (block.type === "thinking" && block.thinking !== undefined) {
+			add("thinking", tokensOf(block.thinking));
+		} else if (block.type === "toolCall") {
+			add("toolcalls", tokensOf((block.name ?? "") + JSON.stringify(block.arguments ?? null)));
+		}
+	}
+}
+
+/** Add one native context message to its categories and the largest-entries list. */
+function accountMessage(message: MessageLike, add: AddTokens, largest: LargestEntry[]): void {
+	const { tokens } = message;
+	switch (message.role) {
+		case "user":
+			add("user", tokens);
+			largest.push({ label: "user message", tokens });
+			break;
+		case "assistant":
+			accountAssistantBlocks(message.content, add);
+			largest.push({ label: "assistant message", tokens });
+			break;
+		case "toolResult":
+			add("toolresults", tokens);
+			largest.push({ label: `tool result: ${message.toolName ?? "?"}`, tokens });
+			break;
+		case "bashExecution":
+			add("bash", tokens);
+			largest.push({ label: "bash execution", tokens });
+			break;
+		case "custom":
+			add("custom", tokens);
+			largest.push({ label: `extension: ${message.customType ?? "?"}`, tokens });
+			break;
+		case "branchSummary":
+		case "compactionSummary":
+			add("summaries", tokens);
+			largest.push({ label: message.role, tokens });
+			break;
+	}
+}
+
+/** Account for every native context message, skipping bash runs already excluded from context. */
+function accountMessages(messages: MessageLike[], add: AddTokens, largest: LargestEntry[]): void {
+	for (const message of messages) {
+		if (message.role === "bashExecution" && message.excludeFromContext === true) {
+			continue;
+		}
+		accountMessage(message, add, largest);
+	}
+}
+
 export function buildBreakdown(input: BreakdownInput): Breakdown {
 	const totals = new Map<string, number>();
 	const subs = new Map<string, SubRow[]>();
 	const expandedSubs = new Map<string, SubRow[]>();
 	const largest: LargestEntry[] = [];
-
-	const add = (key: string, tokens: number) => {
-		if (tokens > 0) totals.set(key, (totals.get(key) ?? 0) + tokens);
+	const add: AddTokens = (key, tokens) => {
+		if (tokens > 0) {
+			totals.set(key, (totals.get(key) ?? 0) + tokens);
+		}
 	};
 
 	// System prompt + structural sub-rows.
-	const systemTokens = tokensOf(input.systemPrompt);
-	add("system", systemTokens);
-	const systemSubs: SubRow[] = [];
-	const fileRows = input.contextFiles
-		.map((f) => ({ label: f.path.split("/").slice(-2).join("/"), tokens: tokensOf(f.content) }))
-		.sort((a, b) => b.tokens - a.tokens);
-	if (fileRows.length > 0) {
-		systemSubs.push({ label: `context files ×${fileRows.length}`, tokens: fileRows.reduce((a, b) => a + b.tokens, 0) });
-	}
-	const skillRows = input.skills
-		.map((s) => ({ label: s.name, tokens: tokensOf(s.name + (s.description ?? "")) }))
-		.sort((a, b) => b.tokens - a.tokens);
-	if (skillRows.length > 0) {
-		systemSubs.push({ label: `skills ×${skillRows.length}`, tokens: skillRows.reduce((a, b) => a + b.tokens, 0) });
-	}
-	subs.set("system", systemSubs);
-	expandedSubs.set("system", [...fileRows, ...skillRows]);
+	add("system", tokensOf(input.systemPrompt));
+	const systemRows = buildSystemRows(input);
+	subs.set("system", systemRows.subs);
+	expandedSubs.set("system", systemRows.expandedSubs);
 
 	// Active tool definitions.
-	const toolRows = input.tools
-		.map((t) => ({ label: t.name, tokens: tokensOf(t.name + (t.description ?? "") + JSON.stringify(t.parameters ?? {})) }))
-		.sort((a, b) => b.tokens - a.tokens);
-	const toolsTotal = toolRows.reduce((a, b) => a + b.tokens, 0);
-	add("tools", toolsTotal);
-	subs.set(
-		"tools",
-		toolRows.slice(0, 3).map((r) => ({ label: r.label, tokens: r.tokens })),
-	);
-	expandedSubs.set("tools", toolRows);
+	const toolRows = buildToolRows(input);
+	add("tools", toolRows.total);
+	subs.set("tools", toolRows.subs);
+	expandedSubs.set("tools", toolRows.expandedSubs);
 
 	// Native context messages. System checkpoints are already counted above.
-	for (const message of input.messages) {
-		if (message.role === "bashExecution" && message.excludeFromContext) continue;
-		const { tokens } = message;
-		switch (message.role) {
-			case "user":
-				add("user", tokens);
-				largest.push({ label: "user message", tokens });
-				break;
-			case "assistant": {
-				for (const block of (message.content as ContentBlock[] | undefined) ?? []) {
-					if (block.type === "text" && block.text) add("assistant", tokensOf(block.text));
-					else if (block.type === "thinking" && block.thinking) add("thinking", tokensOf(block.thinking));
-					else if (block.type === "toolCall") {
-						add("toolcalls", tokensOf((block.name ?? "") + JSON.stringify(block.arguments ?? null)));
-					}
-				}
-				largest.push({ label: "assistant message", tokens });
-				break;
-			}
-			case "toolResult": {
-				add("toolresults", tokens);
-				largest.push({ label: `tool result: ${message.toolName ?? "?"}`, tokens });
-				break;
-			}
-			case "bashExecution":
-				add("bash", tokens);
-				largest.push({ label: "bash execution", tokens });
-				break;
-			case "custom": {
-				add("custom", tokens);
-				largest.push({ label: `extension: ${message.customType ?? "?"}`, tokens });
-				break;
-			}
-			case "branchSummary":
-			case "compactionSummary":
-				add("summaries", tokens);
-				largest.push({ label: `${message.role}`, tokens });
-				break;
-		}
-	}
+	accountMessages(input.messages, add, largest);
 
 	const categories: CategoryRow[] = [];
 	for (const key of CATEGORY_ORDER) {
 		const tokens = totals.get(key) ?? 0;
-		if (tokens === 0) continue;
-		categories.push({ key, label: CATEGORY_LABELS[key] ?? key, tokens, subs: subs.get(key) ?? [], expandedSubs: expandedSubs.get(key) ?? [] });
+		if (tokens === 0) {
+			continue;
+		}
+		categories.push({
+			key,
+			label: CATEGORY_LABELS[key] ?? key,
+			tokens,
+			subs: subs.get(key) ?? [],
+			expandedSubs: expandedSubs.get(key) ?? [],
+		});
 	}
 
 	const estimatedTotal = categories.reduce((sum, c) => sum + c.tokens, 0);
 	largest.sort((a, b) => b.tokens - a.tokens);
-
 	return { categories, largest: largest.slice(0, 10), estimatedTotal };
 }
 
