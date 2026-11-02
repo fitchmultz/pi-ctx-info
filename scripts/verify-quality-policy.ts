@@ -308,7 +308,10 @@ interface LintResult {
 
 function runOxlint(target: string): LintResult {
 	try {
-		const output = execFileSync(oxlintBin, ["--deny-warnings", "--no-ignore", target], {
+		// Pin the JSON reporter: oxlint's default renderer varies with the
+		// ambient environment (the CI qualifier's isolated env gets the fancy
+		// renderer, which is not line-parsable).
+		const output = execFileSync(oxlintBin, ["--deny-warnings", "--format=json", target], {
 			cwd: root,
 			encoding: "utf8",
 		});
@@ -334,19 +337,37 @@ function bareRule(rule: string): string {
 
 function diagnosticsOf(output: string): Map<string, string[]> {
 	const found = new Map<string, string[]>();
-	for (const line of output.split("\n")) {
-		const match = /^(\S+?):\d+:\d+:\s+error\s+([^:]+):/.exec(line.trim());
-		if (match) {
-			const file = match[1];
-			const rule = match[2];
-			if (file !== undefined && rule !== undefined) {
-				const rules = found.get(file) ?? [];
-				rules.push(bareRule(rule));
-				found.set(file, rules);
-			}
+	if (output.trim() === "") {
+		return found;
+	}
+	const parsed: unknown = JSON.parse(output);
+	if (typeof parsed !== "object" || parsed === null || !("diagnostics" in parsed)) {
+		throw new Error("unexpected oxlint JSON report");
+	}
+	const { diagnostics } = parsed;
+	if (!Array.isArray(diagnostics)) {
+		throw new Error("unexpected oxlint JSON report");
+	}
+	for (const entry of diagnostics) {
+		const diagnostic = diagnosticEntry(entry);
+		if (diagnostic === null) {
+			throw new Error("unexpected oxlint diagnostic entry");
 		}
+		const rules = found.get(diagnostic.filename) ?? [];
+		rules.push(bareRule(diagnostic.code));
+		found.set(diagnostic.filename, rules);
 	}
 	return found;
+}
+
+function diagnosticEntry(entry: unknown): { filename: string; code: string } | null {
+	if (typeof entry !== "object" || entry === null || !("code" in entry) || !("filename" in entry)) {
+		return null;
+	}
+	if (typeof entry.code !== "string" || typeof entry.filename !== "string") {
+		return null;
+	}
+	return { filename: entry.filename, code: entry.code };
 }
 
 function writeFixtures(): void {
