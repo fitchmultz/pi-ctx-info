@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['24.15.0', '24']
+        node: ["24.15.0", "24"]
     env:
       npm_config_cache: ${{ github.workspace }}/.npm-cache
     steps:
@@ -59,8 +59,8 @@ jobs:
         working-directory: fork
         env:
           FORK_REF: ${{ needs.resolve.outputs.fork-ref }}
-          PI_OFFLINE: '1'
-          PI_TELEMETRY: '0'
+          PI_OFFLINE: "1"
+          PI_TELEMETRY: "0"
         run: |
           npm install --global "$(node -p 'require("../automation/package.json").packageManager')"
           echo "Fork ref: $FORK_REF"

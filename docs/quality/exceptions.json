@@ -1,0 +1,27 @@
+{
+	"exceptions": {
+		"QX-001": {
+			"kind": "config-allowance",
+			"rule": "typescript/no-floating-promises",
+			"record": "docs/quality/records.md",
+			"summary": "aliased node:test registration calls are known-safe registrations; bare test/it/describe and context subtests stay flagged",
+			"config": {
+				"from": "package",
+				"package": "node:test",
+				"name": ["nodeTest", "nodeIt", "nodeDescribe"]
+			}
+		},
+		"QX-002": {
+			"kind": "site-directive",
+			"rule": "typescript/no-unsafe-type-assertion",
+			"record": "docs/quality/records.md",
+			"summary": "the shared test harness asserts the registered /ctx handler against the narrowed context double once, at the package boundary",
+			"sites": [
+				{
+					"file": "test-harness.ts",
+					"selector": "ctxHandler: command.handler as (args: string, ctx: CtxCommandContext) => Promise<void>"
+				}
+			]
+		}
+	}
+}

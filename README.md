@@ -4,7 +4,7 @@
 
 ![The /ctx overlay reads prompt, tool, message, and usage data from Pi. It shows category estimates and the largest entries.](.github/readme/context-overview.png)
 
-*The overlay keeps Pi usage separate from context estimates.*
+_The overlay keeps Pi usage separate from context estimates._
 
 ## Quick start
 
@@ -38,13 +38,13 @@ The overlay shows a category bar and the five largest message entries.
 
 The expanded overlay lists discovered context files, skills, and active tools. It shows up to ten largest entries.
 
-| Key | Action |
-| --- | --- |
-| `e` | Expand or collapse details |
-| `↑` / `↓` | Scroll |
-| `Home` / `End` | Jump to the start or end |
-| `r` | Refresh the overlay |
-| `Esc` / `q` / `Enter` | Close the overlay |
+| Key                   | Action                     |
+| --------------------- | -------------------------- |
+| `e`                   | Expand or collapse details |
+| `↑` / `↓`             | Scroll                     |
+| `Home` / `End`        | Jump to the start or end   |
+| `r`                   | Refresh the overlay        |
+| `Esc` / `q` / `Enter` | Close the overlay          |
 
 Print and RPC modes cannot show the overlay.
 

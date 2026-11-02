@@ -1,10 +1,74 @@
-import { estimateTokens, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import {
+	estimateTokens,
+	type ExtensionAPI,
+	type ExtensionCommandContext,
+	type ExtensionContext,
+	type ExtensionUIContext,
+} from "@earendil-works/pi-coding-agent";
 import { getCurrentSystemPrompt, getCurrentTools } from "@earendil-works/pi-ai";
-import { Key, matchesKey, type TUI, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { type Breakdown, buildBreakdown, formatTokens } from "./breakdown.ts";
+import {
+	Key,
+	matchesKey,
+	type Component,
+	type TUI,
+	truncateToWidth,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
+import { type Breakdown, type BreakdownInput, buildBreakdown, formatTokens } from "./breakdown.ts";
 
 type Theme = ExtensionUIContext["theme"];
 type FgColor = Parameters<Theme["fg"]>[0];
+
+/** The overlay reads only these surfaces from Pi's TUI and theme objects. */
+export type OverlayTui = Pick<TUI, "requestRender"> & { terminal: Pick<TUI["terminal"], "rows"> };
+export type OverlayTheme = Pick<Theme, "fg" | "bg" | "bold">;
+
+/** Factory shape the overlay registers with `ui.custom`, narrowed to the surfaces it consumes. */
+export type OverlayCustomFactory = (
+	tui: OverlayTui,
+	theme: OverlayTheme,
+	keybindings: unknown,
+	done: (result: null) => void,
+) => Component & { dispose?: () => void };
+
+type OverlayShowOptions = Parameters<ExtensionUIContext["custom"]>[1];
+
+/** Model fields the overlay reads; Pi passes its full Model, which is assignable to this. */
+export type CtxModel = Pick<
+	NonNullable<ExtensionCommandContext["model"]>,
+	"id" | "provider" | "contextWindow"
+>;
+
+/**
+ * The command context the /ctx overlay actually consumes. Pi passes its full
+ * ExtensionCommandContext, which is assignable to this narrower contract.
+ */
+export type CtxCommandContext = Omit<
+	Pick<
+		ExtensionCommandContext,
+		| "mode"
+		| "model"
+		| "sessionManager"
+		| "getSystemPrompt"
+		| "getSystemPromptOptions"
+		| "getContextUsage"
+	>,
+	"model"
+> & {
+	model: CtxModel | undefined;
+	ui: Pick<ExtensionUIContext, "notify"> & {
+		/** The overlay is always shown with a null result: closing calls done(null). */
+		custom: (factory: OverlayCustomFactory, options?: OverlayShowOptions) => Promise<null>;
+	};
+};
+
+/** Session surfaces the prompt fingerprint and boundary checks read. */
+type CtxSessionContext = Omit<
+	Pick<ExtensionContext, "sessionManager" | "model" | "getSystemPrompt">,
+	"model"
+> & {
+	model: CtxModel | undefined;
+};
 
 interface Snapshot {
 	breakdown: Breakdown;
@@ -22,48 +86,104 @@ interface PreparedPrompt {
 	settledPrompt?: string;
 }
 
-const PALETTE: FgColor[] = ["accent", "warning", "success", "error", "toolTitle", "customMessageLabel", "muted", "dim", "toolOutput", "searchMatchText"];
+const PALETTE: FgColor[] = [
+	"accent",
+	"warning",
+	"success",
+	"error",
+	"toolTitle",
+	"customMessageLabel",
+	"muted",
+	"dim",
+	"toolOutput",
+	"searchMatchText",
+];
 
 function activeTools(pi: ExtensionAPI) {
 	const active = new Set(pi.getActiveTools());
-	return pi.getAllTools()
+	return pi
+		.getAllTools()
 		.filter((tool) => active.has(tool.name))
-		.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.parameters }));
+		.map((tool) => ({
+			name: tool.name,
+			description: tool.description,
+			parameters: tool.parameters,
+		}));
 }
 
-function promptKey(ctx: ExtensionContext, tools: ReturnType<typeof activeTools>): string {
+function promptKey(ctx: CtxSessionContext, tools: ReturnType<typeof activeTools>): string {
 	return JSON.stringify([
-		ctx.sessionManager.getSessionId(), ctx.model?.provider, ctx.model?.id,
+		ctx.sessionManager.getSessionId(),
+		ctx.model?.provider,
+		ctx.model?.id,
 		tools,
 	]);
 }
 
-function sameContextBoundary(ctx: ExtensionContext, prepared: PreparedPrompt): boolean {
+function sameContextBoundary(
+	ctx: Pick<ExtensionContext, "sessionManager">,
+	prepared: PreparedPrompt,
+): boolean {
 	for (let id = ctx.sessionManager.getLeafId(); id !== prepared.leaf;) {
-		if (!id) return false;
+		if (id === null) {
+			return false;
+		}
 		const entry = ctx.sessionManager.getEntry(id);
-		if (!entry || entry.type === "compaction") return false;
+		if (!entry || entry.type === "compaction") {
+			return false;
+		}
 		id = entry.parentId;
 	}
 	return true;
 }
 
-function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?: PreparedPrompt): Snapshot {
+/** Whether the last prepared request still describes the current session context. */
+function matchesPreparedPrompt(
+	ctx: CtxSessionContext,
+	prepared: PreparedPrompt,
+	tools: ReturnType<typeof activeTools>,
+): boolean {
+	if (prepared.key !== promptKey(ctx, tools)) {
+		return false;
+	}
+	if (prepared.settledPrompt !== undefined && prepared.settledPrompt !== ctx.getSystemPrompt()) {
+		return false;
+	}
+	return sameContextBoundary(ctx, prepared);
+}
+
+function breakdownInput(
+	ctx: CtxCommandContext,
+	pi: ExtensionAPI,
+	prepared: PreparedPrompt | undefined,
+): { input: BreakdownInput; usePrepared: boolean } {
 	const options = ctx.getSystemPromptOptions();
 	const tools = activeTools(pi);
-	const usePrepared = prepared !== undefined && prepared.key === promptKey(ctx, tools)
-		&& sameContextBoundary(ctx, prepared)
-		&& (prepared.settledPrompt === undefined || prepared.settledPrompt === ctx.getSystemPrompt());
-	const breakdown = buildBreakdown({
+	const usePrepared = prepared !== undefined && matchesPreparedPrompt(ctx, prepared, tools);
+	const input: BreakdownInput = {
 		systemPrompt: usePrepared ? prepared.text : ctx.getSystemPrompt(),
 		contextFiles: options.contextFiles ?? [],
-		skills: (options.skills ?? []).map((skill) => ({ name: skill.name, description: skill.description })),
+		skills: (options.skills ?? []).map((skill) => ({
+			name: skill.name,
+			description: skill.description,
+		})),
 		tools: usePrepared ? prepared.tools : tools,
 		// Use Pi's model context after edits, summaries, and handoffs.
 		// System checkpoints remain separate from the single prompt/tool accounting above.
-		messages: ctx.sessionManager.buildSessionProjection().messages
-			.map((message) => ({ ...message, tokens: estimateTokens(message) })),
-	});
+		messages: ctx.sessionManager
+			.buildSessionProjection()
+			.messages.map((message) => Object.assign({}, message, { tokens: estimateTokens(message) })),
+	};
+	return { input, usePrepared };
+}
+
+function takeSnapshot(
+	ctx: CtxCommandContext,
+	pi: ExtensionAPI,
+	prepared?: PreparedPrompt,
+): Snapshot {
+	const { input, usePrepared } = breakdownInput(ctx, pi, prepared);
+	const breakdown = buildBreakdown(input);
 
 	const usage = ctx.getContextUsage();
 	return {
@@ -75,6 +195,31 @@ function takeSnapshot(ctx: ExtensionCommandContext, pi: ExtensionAPI, prepared?:
 	};
 }
 
+interface CountedRowSpec {
+	prefix: string;
+	label: string;
+	tokens: number;
+	labelWidth: number;
+	suffix?: string;
+}
+
+/** One aligned `label ... count` row, falling back to count-first when too wide for `width`. */
+function countedRow(spec: CountedRowSpec, width: number): string {
+	const count = formatTokens(spec.tokens).padStart(8);
+	const wide = spec.prefix + spec.label.padEnd(spec.labelWidth) + count + (spec.suffix ?? "");
+	return visibleWidth(wide) < width
+		? wide
+		: spec.prefix + count + "  " + spec.label + (spec.suffix ?? "");
+}
+
+interface CtxOverlayOptions {
+	snapshot: Snapshot;
+	tui: OverlayTui;
+	theme: OverlayTheme;
+	onClose: () => void;
+	onRefresh: () => Snapshot;
+}
+
 class CtxOverlay {
 	private snapshot: Snapshot;
 	private expanded = false;
@@ -83,17 +228,25 @@ class CtxOverlay {
 	private cachedExpanded: boolean | undefined;
 	private cachedHeader: string[] = [];
 	private cachedBody: string[] = [];
-	private readonly tui: TUI;
-	private readonly theme: Theme;
+	private readonly tui: OverlayTui;
+	private readonly theme: OverlayTheme;
 	private readonly onClose: () => void;
 	private readonly onRefresh: () => Snapshot;
 
-	constructor(snapshot: Snapshot, tui: TUI, theme: Theme, onClose: () => void, onRefresh: () => Snapshot) {
-		this.snapshot = snapshot;
-		this.tui = tui;
-		this.theme = theme;
-		this.onClose = onClose;
-		this.onRefresh = onRefresh;
+	constructor(options: CtxOverlayOptions) {
+		this.snapshot = options.snapshot;
+		this.tui = options.tui;
+		this.theme = options.theme;
+		this.onClose = options.onClose;
+		this.onRefresh = options.onRefresh;
+	}
+
+	private fg(color: FgColor, text: string): string {
+		return this.theme.fg(color, text);
+	}
+
+	private bold(text: string): string {
+		return this.theme.bold(text);
 	}
 
 	handleInput(data: string): void {
@@ -145,7 +298,7 @@ class CtxOverlay {
 		const maxOffset = Math.max(0, body.length - visible);
 		this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxOffset));
 
-		const hint = hintRows ? [this.buildHint(w, maxOffset)] : [];
+		const hint = hintRows > 0 ? [this.buildHint(w, maxOffset)] : [];
 		return [...header, ...body.slice(this.scrollOffset, this.scrollOffset + visible), ...hint];
 	}
 
@@ -157,76 +310,158 @@ class CtxOverlay {
 	}
 
 	private buildLines(width: number): { header: string[]; body: string[] } {
-		const fg = (color: FgColor, text: string) => this.theme.fg(color, text);
-		const bold = (text: string) => this.theme.bold(text);
+		return { header: this.buildHeader(width), body: this.buildBody(width) };
+	}
+
+	private buildHeader(width: number): string[] {
 		const { breakdown, usage, modelId, contextWindow, promptSource } = this.snapshot;
 		const inner = Math.max(width - 2, 0);
 		const padLine = (line: string) => this.pad(line, width);
-		const countedRow = (prefix: string, label: string, tokens: number, labelWidth: number, suffix = "") => {
-			const count = formatTokens(tokens).padStart(8);
-			const wide = prefix + label.padEnd(labelWidth) + count + suffix;
-			return visibleWidth(wide) < width ? wide : prefix + count + "  " + label + suffix;
-		};
 
 		const header: string[] = [];
-		header.push(padLine(fg("accent", bold("ctx — what's occupying this session's context"))));
-		header.push(padLine(fg("dim", "─".repeat(inner))));
-		header.push(padLine(fg("muted", modelId) + (contextWindow ? fg("dim", ` · window ${formatTokens(contextWindow)}`) : "")));
-		if (usage) {
-			const nativeUsage = usage.tokens === null
-				? "unknown"
-				: `${formatTokens(usage.tokens)} (${usage.percent?.toFixed(1)}% of window)`;
-			const sourceLabel = usage.tokens === null ? "" : " · reported + estimated";
-			header.push(padLine(fg("muted", "Pi context usage: ") + nativeUsage + fg("dim", sourceLabel)));
+		header.push(
+			padLine(this.fg("accent", this.bold("ctx — what's occupying this session's context"))),
+		);
+		header.push(padLine(this.fg("dim", "─".repeat(inner))));
+		header.push(
+			padLine(
+				this.fg("muted", modelId) +
+					(contextWindow !== undefined && contextWindow > 0
+						? this.fg("dim", ` · window ${formatTokens(contextWindow)}`)
+						: ""),
+			),
+		);
+		if (usage === undefined) {
+			header.push(padLine(this.fg("dim", "Pi context usage: unavailable")));
+		} else if (usage.tokens === null || usage.percent === null) {
+			// percent is null only when tokens is; both are handled as one unknown state.
+			header.push(padLine(this.fg("muted", "Pi context usage: ") + "unknown" + this.fg("dim", "")));
 		} else {
-			header.push(padLine(fg("dim", "Pi context usage: unavailable")));
+			const nativeUsage = `${formatTokens(usage.tokens)} (${usage.percent.toFixed(1)}% of window)`;
+			header.push(
+				padLine(
+					this.fg("muted", "Pi context usage: ") +
+						nativeUsage +
+						this.fg("dim", " · reported + estimated"),
+				),
+			);
 		}
-		header.push(padLine(fg("dim", promptSource === "prepared"
-			? "current entries/tools; last prepared request prompt"
-			: "current entries/tools; current Pi prompt (per-run guidance may be unavailable)")));
-		const estimatedPct = contextWindow ? ` (${((breakdown.estimatedTotal / contextWindow) * 100).toFixed(1)}% of window)` : "";
-		header.push(padLine(fg("muted", "estimated composition: ") + `${formatTokens(breakdown.estimatedTotal)}${estimatedPct}` + fg("dim", " · chars/4 heuristic")));
+		header.push(
+			padLine(
+				this.fg(
+					"dim",
+					promptSource === "prepared"
+						? "current entries/tools; last prepared request prompt"
+						: "current entries/tools; current Pi prompt (per-run guidance may be unavailable)",
+				),
+			),
+		);
+		const estimatedPct =
+			contextWindow !== undefined && contextWindow > 0
+				? ` (${((breakdown.estimatedTotal / contextWindow) * 100).toFixed(1)}% of window)`
+				: "";
+		header.push(
+			padLine(
+				this.fg("muted", "estimated composition: ") +
+					`${formatTokens(breakdown.estimatedTotal)}${estimatedPct}` +
+					this.fg("dim", " · chars/4 heuristic"),
+			),
+		);
 		header.push(padLine(""));
 		if (breakdown.estimatedTotal > 0) {
 			header.push(padLine(this.buildBar(Math.max(Math.min(inner, 60), 20))));
 		}
 		header.push(padLine(""));
+		return header;
+	}
 
+	private buildBody(width: number): string[] {
+		const { breakdown, contextWindow } = this.snapshot;
+		const padLine = (line: string) => this.pad(line, width);
 		const body: string[] = [];
+
 		breakdown.categories.forEach((category, i) => {
 			const color = PALETTE[i % PALETTE.length] ?? "muted";
 			const basis = contextWindow ?? breakdown.estimatedTotal;
 			const pct = basis > 0 ? ((category.tokens / basis) * 100).toFixed(1) : "0.0";
-			body.push(padLine(countedRow(fg(color, "■ "), category.label, category.tokens, 30, fg("dim", `  ${pct}%`))));
+			body.push(
+				padLine(
+					countedRow(
+						{
+							prefix: this.fg(color, "■ "),
+							label: category.label,
+							tokens: category.tokens,
+							labelWidth: 30,
+							suffix: this.fg("dim", `  ${pct}%`),
+						},
+						width,
+					),
+				),
+			);
 			const rows = this.expanded ? category.expandedSubs : category.subs;
 			for (const sub of rows) {
-				body.push(padLine(fg("dim", countedRow("    ", sub.label, sub.tokens, 26))));
+				body.push(
+					padLine(
+						this.fg(
+							"dim",
+							countedRow(
+								{ prefix: "    ", label: sub.label, tokens: sub.tokens, labelWidth: 26 },
+								width,
+							),
+						),
+					),
+				);
 			}
 		});
-		if (contextWindow && contextWindow > breakdown.estimatedTotal) {
+		if (contextWindow !== undefined && contextWindow > breakdown.estimatedTotal) {
 			const free = contextWindow - breakdown.estimatedTotal;
 			const pct = ((free / contextWindow) * 100).toFixed(1);
-			body.push(padLine(countedRow(fg("dim", "□ "), "estimated free", free, 30, fg("dim", `  ${pct}%`))));
+			body.push(
+				padLine(
+					countedRow(
+						{
+							prefix: this.fg("dim", "□ "),
+							label: "estimated free",
+							tokens: free,
+							labelWidth: 30,
+							suffix: this.fg("dim", `  ${pct}%`),
+						},
+						width,
+					),
+				),
+			);
 		}
 
 		const largest = this.expanded ? breakdown.largest : breakdown.largest.slice(0, 5);
 		if (largest.length > 0) {
 			body.push(padLine(""));
-			body.push(padLine(fg("muted", bold("largest entries"))));
+			body.push(padLine(this.fg("muted", this.bold("largest entries"))));
 			largest.forEach((entry, i) => {
-				body.push(padLine(countedRow(fg("dim", `${i + 1}. `), entry.label, entry.tokens, 34)));
+				body.push(
+					padLine(
+						countedRow(
+							{
+								prefix: this.fg("dim", `${i + 1}. `),
+								label: entry.label,
+								tokens: entry.tokens,
+								labelWidth: 34,
+							},
+							width,
+						),
+					),
+				);
 			});
 		}
-
-		return { header, body };
+		return body;
 	}
 
 	private buildHint(width: number, maxOffset: number): string {
-		const fg = (color: FgColor, text: string) => this.theme.fg(color, text);
 		const parts = [this.expanded ? "e collapse" : "e expand"];
-		if (maxOffset > 0) parts.push(`↑↓ scroll (${this.scrollOffset}/${maxOffset})`);
+		if (maxOffset > 0) {
+			parts.push(`↑↓ scroll (${this.scrollOffset}/${maxOffset})`);
+		}
 		parts.push("esc/q close", "r refresh");
-		return this.pad(fg("dim", parts.join(" · ")), width);
+		return this.pad(this.fg("dim", parts.join(" · ")), width);
 	}
 
 	private buildBar(barWidth: number): string {
@@ -240,7 +475,9 @@ class CtxOverlay {
 		}));
 		// Every non-zero category gets at least one cell.
 		for (const cell of cells) {
-			if (cell.tokens > 0 && cell.width === 0) cell.width = 1;
+			if (cell.tokens > 0 && cell.width === 0) {
+				cell.width = 1;
+			}
 		}
 		// Never exceed the bar; the free tail soaks up unused cells.
 		let sum = cells.reduce((a, b) => a + b.width, 0);
@@ -253,12 +490,14 @@ class CtxOverlay {
 			.filter((cell) => cell.width > 0)
 			.map((cell) => this.theme.fg(cell.color, "█".repeat(cell.width)));
 		const used = cells.reduce((a, b) => a + b.width, 0);
-		if (used < barWidth) parts.push(this.theme.fg("dim", "░".repeat(barWidth - used)));
+		if (used < barWidth) {
+			parts.push(this.theme.fg("dim", "░".repeat(barWidth - used)));
+		}
 		return parts.join("");
 	}
 }
 
-export default function (pi: ExtensionAPI) {
+export default function register(pi: ExtensionAPI): void {
 	let prepared: PreparedPrompt | undefined;
 	// Run-only prompt additions disappear from getSystemPrompt() after settlement.
 	// Keep only the observed prompt in memory; never write sensitive guidance to the session.
@@ -271,9 +510,13 @@ export default function (pi: ExtensionAPI) {
 		};
 	});
 	pi.on("agent_settled", (_event, ctx) => {
-		if (prepared && prepared.settledPrompt === undefined) prepared.settledPrompt = ctx.getSystemPrompt();
+		if (prepared && prepared.settledPrompt === undefined) {
+			prepared.settledPrompt = ctx.getSystemPrompt();
+		}
 	});
-	const clearPrompt = () => { prepared = undefined; };
+	const clearPrompt = () => {
+		prepared = undefined;
+	};
 	pi.on("session_start", clearPrompt);
 	pi.on("session_tree", clearPrompt);
 	pi.on("session_compact", clearPrompt);
@@ -281,24 +524,24 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerCommand("ctx", {
 		description: "Visual breakdown of what occupies the session context",
-		handler: async (_args, ctx) => {
+		handler: async (_args: string, ctx: CtxCommandContext): Promise<void> => {
 			if (ctx.mode !== "tui") {
 				ctx.ui.notify("/ctx requires the interactive TUI", "warning");
 				return;
 			}
-			await ctx.ui.custom<null>(
-				(tui, theme, _keybindings, done) =>
-					new CtxOverlay(
-						takeSnapshot(ctx, pi, prepared),
+			await ctx.ui.custom(
+				(tui: OverlayTui, theme: OverlayTheme, _keybindings, done) =>
+					new CtxOverlay({
+						snapshot: takeSnapshot(ctx, pi, prepared),
 						tui,
 						theme,
-						() => done(null),
-						() => {
+						onClose: () => done(null),
+						onRefresh: () => {
 							const next = takeSnapshot(ctx, pi, prepared);
 							tui.requestRender();
 							return next;
 						},
-					),
+					}),
 				{ overlay: true, overlayOptions: { width: "85%", maxHeight: "85%", anchor: "center" } },
 			);
 		},

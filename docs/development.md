@@ -6,12 +6,19 @@ Use Node 24 (`.nvmrc`) and npm 12 (`package.json` selects npm 12.2.0).
 
 ```sh
 npm ci --ignore-scripts  # install development dependencies; Pi supplies runtime peers
-npm run check:compat     # lockfile check, type-check, and all behavior tests
+npm run check:compat     # every gate, run independently and aggregated
 npm run check            # type-check with TypeScript 7
+npm run lint             # oxlint with the adopted strict baseline
+npm run format:check     # oxfmt formatting check
+npm run check:policy     # adopted quality-policy verification
 npm test                 # breakdown, native session fixtures, and overlay allocation tests
 ```
 
 The Pi development cohort is pinned to official `1.0.0`: the eight-package Pi cohort, with host TypeBox `1.3.27`. No build or `prepare` step is needed.
+
+## Quality policy
+
+The repository follows the [Strict Oxlint and Oxfmt Engineering Standard](quality/standard.md) (v5.1.2), adopted with the recorded decisions in [quality/records.md](quality/records.md). `check:policy` verifies the adopted baseline on every run: configuration integrity against the standard, compiler and lint coverage of maintained source, the recorded exceptions against the source, and enforcement controls (node:test registration boundary, floating promises, type safety, structural limits, test profile) through temporary diagnostic fixtures. Relaxations require a quality-exception record; the machine-readable manifest is [quality/exceptions.json](quality/exceptions.json).
 
 ## Lockfile
 
