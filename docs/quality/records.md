@@ -5,7 +5,7 @@
 ## Adoption record
 
 - **Repository and adopted version:** `fitchmultz/pi-ctx-info`, [Strict Oxlint and Oxfmt Engineering Standard](standard.md) v5.1.2, adopted by the migration PR on branch `oxlint-oxfmt-standard`.
-- **Supported runtimes and package manager:** Node `>=24.15.0`, npm 12.2.0.
+- **Supported runtimes and package manager:** Node `>=24.22.3 <25 || >=26.13.1`, npm 12.2.0.
 - **Installed tool versions:** oxlint 1.90.0, oxfmt 0.75.0, oxlint-tsgolint 7.0.2005 (tsgolint type service), TypeScript 7.0.2, `@types/node` 24.19.0.
 - **Config and acceptance paths:** `.oxlintrc.json` (baseline copy of the standard's Appendix A plus the recorded exceptions below), `.oxfmtrc.json` (standard defaults; tabs follow the repository's established convention). Acceptance runs `npm run check:compat`, which executes `scripts/run-checks.ts` to run every gate independently and aggregate failures: `check:lock`, `check:policy`, `format:check`, `lint`, `check` (tsc), and `test`.
 - **Compiler projects and source profiles:** one TypeScript project (`tsconfig.json`) covering `*.ts` and `scripts/*.ts`; strict ESM NodeNext with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `erasableSyntaxOnly`, and `verbatimModuleSyntax`. Tests run directly through Node's type stripping. Lint applies the standard's test profile to `**/*.test.ts`.
