@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["24.15.0", "24"]
+        node: ["24.22.3", "24"]
     env:
       npm_config_cache: ${{ github.workspace }}/.npm-cache
     steps:
