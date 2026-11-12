@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md)
 
-Use Node 24.22.3 or newer in the 24.x line (`.nvmrc` selects the latest Node 24), or Node 26.13.1 or later, and npm 12 (`package.json` selects npm 12.2.0).
+Use Node 24.22.3 or newer in the 24.x line (`.nvmrc` pins 24.22.3), or Node 26.13.1 or later, and npm 12 (`package.json` selects npm 12.2.0).
 
 ```sh
 npm ci --ignore-scripts  # install development dependencies; Pi supplies runtime peers
