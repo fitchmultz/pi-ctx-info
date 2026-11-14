@@ -8,7 +8,7 @@ _The overlay keeps Pi usage separate from context estimates._
 
 ## Quick start
 
-Use Node.js 24.22.3 (24.x) or 26.13.1 and later and official Pi 1.5.0+ or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
+Use Node.js 24.22.3 (24.x) or 26.13.1 and later and official Pi 1.5.2+ or the current [fitchmultz/pi](https://github.com/fitchmultz/pi) fork.
 
 Install the extension:
 
