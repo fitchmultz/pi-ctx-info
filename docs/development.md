@@ -14,7 +14,7 @@ npm run check:policy     # adopted quality-policy verification
 npm test                 # breakdown, native session fixtures, and overlay allocation tests
 ```
 
-The Pi development cohort is pinned to official `1.5.0`: the eight-package Pi cohort, with host TypeBox `1.3.27`. No build or `prepare` step is needed.
+The Pi development cohort is pinned to official `1.5.2`: the eight-package Pi cohort, with host TypeBox `1.3.27`. No build or `prepare` step is needed.
 
 ## Quality policy
 
