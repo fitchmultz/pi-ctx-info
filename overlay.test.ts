@@ -25,7 +25,7 @@ function assertRendersWithin(component: OverlayComponent, widths: number[]): voi
 function assertScrollReachesEveryLine(
 	component: OverlayComponent,
 	setRows: (rows: number) => void,
-	full: string[],
+	full: readonly string[],
 ): void {
 	for (const rows of [10, 1]) {
 		setRows(rows);
