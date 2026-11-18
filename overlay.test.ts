@@ -38,7 +38,7 @@ function assertScrollReachesEveryLine(
 				"overlay exceeds its height allocation",
 			);
 			if (rows > 1) {
-				assert.match(lines.at(-1) ?? "", /esc\/q close/);
+				assert.match(lines.at(-1) ?? "", /escape\/q close/);
 			}
 			for (const line of lines) {
 				seen.add(line);
@@ -86,3 +86,22 @@ nodeTest(
 		assert.ok(harness.renderRequests > 0, "overlay input must request a re-render");
 	},
 );
+
+nodeTest("/ctx overlay uses configured keybindings for hints and input handling", async (t) => {
+	const agentDir = createAgentDir();
+	t.after(() => removeAgentDir(agentDir));
+	const harness = await createOverlayHarness(host, agentDir, {
+		"tui.select.up": "k",
+		"tui.select.down": "j",
+		"tui.select.cancel": "ctrl+g",
+	});
+	harness.terminal.rows = 10;
+	const lines = harness.component.render(80);
+	assert.match(lines.at(-1) ?? "", /k\/j scroll \(0\/\d+\) · ctrl\+g\/q close · r refresh/);
+	harness.component.handleInput?.("j");
+	const scrolled = harness.component.render(80);
+	assert.match(scrolled.at(-1) ?? "", /k\/j scroll \(1\/\d+\)/);
+	assert.equal(harness.closed, false);
+	harness.component.handleInput?.("\x07"); // ctrl+g
+	assert.equal(harness.closed, true);
+});

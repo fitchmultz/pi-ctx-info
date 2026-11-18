@@ -1,8 +1,14 @@
 /**
  * Pure context-composition logic for the /ctx command.
- * No pi imports: structural types only, so this file is unit-testable with node:test.
+ * Structural input types keep this module unit-testable with node:test; display
+ * labels are sanitized via pi-tui's stripTerminalSequences and replaceControlCharacters.
  * Per-message totals come from pi's estimateTokens; category splits use the same chars/4 heuristic.
  */
+import { replaceControlCharacters, stripTerminalSequences } from "@earendil-works/pi-tui";
+
+export function sanitizeLabel(text: string): string {
+	return replaceControlCharacters(stripTerminalSequences(text));
+}
 
 export interface ContentBlock {
 	type: string;
@@ -107,10 +113,16 @@ type AddTokens = (key: string, tokens: number) => void;
 /** Compact and full sub-rows for the system-prompt category (context files and skills). */
 function buildSystemRows(input: BreakdownInput): { subs: SubRow[]; expandedSubs: SubRow[] } {
 	const fileRows = input.contextFiles
-		.map((f) => ({ label: f.path.split("/").slice(-2).join("/"), tokens: tokensOf(f.content) }))
+		.map((f) => ({
+			label: sanitizeLabel(f.path.split("/").slice(-2).join("/")),
+			tokens: tokensOf(f.content),
+		}))
 		.sort((a, b) => b.tokens - a.tokens);
 	const skillRows = input.skills
-		.map((s) => ({ label: s.name, tokens: tokensOf(s.name + (s.description ?? "")) }))
+		.map((s) => ({
+			label: sanitizeLabel(s.name),
+			tokens: tokensOf(s.name + (s.description ?? "")),
+		}))
 		.sort((a, b) => b.tokens - a.tokens);
 	const subs: SubRow[] = [];
 	if (fileRows.length > 0) {
@@ -136,7 +148,7 @@ function buildToolRows(input: BreakdownInput): {
 } {
 	const toolRows = input.tools
 		.map((t) => ({
-			label: t.name,
+			label: sanitizeLabel(t.name),
 			tokens: tokensOf(t.name + (t.description ?? "") + JSON.stringify(t.parameters ?? {})),
 		}))
 		.sort((a, b) => b.tokens - a.tokens);
@@ -177,7 +189,10 @@ function accountMessage(message: MessageLike, add: AddTokens, largest: LargestEn
 			break;
 		case "toolResult":
 			add("toolresults", tokens);
-			largest.push({ label: `tool result: ${message.toolName ?? "?"}`, tokens });
+			largest.push({
+				label: `tool result: ${sanitizeLabel(message.toolName ?? "?")}`,
+				tokens,
+			});
 			break;
 		case "bashExecution":
 			add("bash", tokens);
@@ -185,7 +200,10 @@ function accountMessage(message: MessageLike, add: AddTokens, largest: LargestEn
 			break;
 		case "custom":
 			add("custom", tokens);
-			largest.push({ label: `extension: ${message.customType ?? "?"}`, tokens });
+			largest.push({
+				label: `extension: ${sanitizeLabel(message.customType ?? "?")}`,
+				tokens,
+			});
 			break;
 		case "branchSummary":
 		case "compactionSummary":

@@ -286,3 +286,63 @@ nodeTest("does not count a message removed from model context", async (t) => {
 	);
 	assert.doesNotMatch(await h.show(), /User messages/);
 });
+
+nodeTest("sanitizes untrusted model IDs before rendering the overlay", async () => {
+	const h = await harness();
+	h.ctx.model = {
+		provider: "fixture",
+		id: "\x1b[31mfake\x1b[0m\nmodel\x07",
+		contextWindow: 128000,
+	};
+	const shown = await h.show();
+	assert.match(shown, /fake model {2}· window 128,000/);
+	assert.doesNotMatch(shown, /\x1b|\x07|\nmodel/);
+});
+
+nodeTest("guards /ctx command UI across rpc, print, and headless contexts", async (t) => {
+	const h = await harness();
+	const notifications: Array<[string, string | undefined]> = [];
+	const stderrMessages: string[] = [];
+	let customCalls = 0;
+	h.ctx.ui = {
+		notify(message, type) {
+			notifications.push([message, type]);
+		},
+		custom() {
+			customCalls += 1;
+			return Promise.resolve(null);
+		},
+	};
+	const errorSpy = t.mock.method(console, "error", (message: string) => {
+		stderrMessages.push(message);
+	});
+	try {
+		h.ctx.mode = "rpc";
+		h.ctx.hasUI = true;
+		await h.run();
+		assert.deepEqual(notifications, [["/ctx requires interactive mode", "warning"]]);
+		assert.equal(stderrMessages.length, 0);
+
+		notifications.length = 0;
+		h.ctx.mode = "print";
+		h.ctx.hasUI = false;
+		await h.run();
+		assert.deepEqual(notifications, []);
+		assert.deepEqual(stderrMessages, ["/ctx requires interactive mode"]);
+
+		stderrMessages.length = 0;
+		h.ctx.mode = "json";
+		h.ctx.hasUI = false;
+		await h.run();
+		assert.deepEqual(notifications, []);
+		assert.deepEqual(stderrMessages, []);
+
+		h.ctx.mode = "tui";
+		h.ctx.hasUI = false;
+		await h.run();
+		assert.deepEqual(notifications, []);
+		assert.equal(customCalls, 0);
+	} finally {
+		errorSpy.mock.restore();
+	}
+});

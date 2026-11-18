@@ -18,7 +18,7 @@ The Pi development cohort is pinned to official `1.5.2`: the eight-package Pi co
 
 ## Quality policy
 
-The repository follows the [Strict Oxlint and Oxfmt Engineering Standard](quality/standard.md) (v5.1.2), adopted with the recorded decisions in [quality/records.md](quality/records.md). `check:policy` verifies the adopted baseline on every run: configuration integrity against the standard, compiler and lint coverage of maintained source, the recorded exceptions against the source, and enforcement controls (node:test registration boundary, floating promises, type safety, structural limits, test profile) through temporary diagnostic fixtures. Relaxations require a quality-exception record; the machine-readable manifest is [quality/exceptions.json](quality/exceptions.json).
+The repository follows the [Strict Oxlint and Oxfmt Engineering Standard](quality/standard.md) (v5.1.2), adopted with the recorded decisions in [quality/records.md](quality/records.md). `check:policy` verifies the adopted baseline on every run: configuration integrity against the standard, compiler and lint coverage of maintained source, and the recorded exceptions against the source. Relaxations require a quality-exception record; the machine-readable manifest is [quality/exceptions.json](quality/exceptions.json).
 
 ## Lockfile
 
@@ -34,4 +34,4 @@ Former fork-only usage-source labels and native checkpoint tests were retired wi
 
 ## CI compatibility
 
-CI qualifies official Pi and the current fork `main` on Node 24.22.3 (the minimum) and the latest Node 24. The shared `fitchmultz/.github` qualifier checks package contracts, a fresh Git install, and the real bundled Pi CLI. See [the workflow](../.github/workflows/pi-compatibility.yml).
+CI qualifies official Pi and the current fork `main` on Node 24 via the shared `fitchmultz/.github` compatibility workflow, checking package contracts, a fresh Git install, and the real bundled Pi CLI. See [the workflow](../.github/workflows/pi-compatibility.yml).

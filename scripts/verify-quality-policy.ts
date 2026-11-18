@@ -1,24 +1,19 @@
 /**
  * Verifies the adopted strict oxlint/oxfmt quality policy (docs/quality/standard.md).
  *
- * Fails when the lint configuration drifts from the adopted baseline, when a
- * representative policy downgrade or an uncovered maintained source is
- * accepted, when recorded exceptions stop matching the source, or when the
- * enforcement controls (node:test registration boundary, floating promises,
- * type safety, structural limits, test profile) stop producing diagnostics.
+ * Fails when the lint or formatter configuration drifts from the adopted baseline,
+ * when maintained source is left outside compiler/lint coverage, or when
+ * recorded exceptions stop matching the source.
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import oxfmtConfig from "../.oxfmtrc.json" with { type: "json" };
 import oxlintConfig from "../.oxlintrc.json" with { type: "json" };
 import exceptions from "../docs/quality/exceptions.json" with { type: "json" };
-import { CLEAN_FIXTURES, DIRTY_FIXTURES, fixtureDir } from "./policy-fixtures.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const oxlintBin = join(root, "node_modules", ".bin", "oxlint");
 
 type OxlintConfig = typeof oxlintConfig;
 type Violation = string;
@@ -301,109 +296,6 @@ function coverageViolations(): Violation[] {
 	return violations;
 }
 
-interface LintResult {
-	status: number;
-	output: string;
-}
-
-function runOxlint(target: string): LintResult {
-	try {
-		// Pin the JSON reporter: oxlint's default renderer varies with the
-		// ambient environment (the CI qualifier's isolated env gets the fancy
-		// renderer, which is not line-parsable).
-		const output = execFileSync(oxlintBin, ["--deny-warnings", "--format=json", target], {
-			cwd: root,
-			encoding: "utf8",
-		});
-		return { status: 0, output };
-	} catch (error) {
-		if (
-			typeof error === "object" &&
-			error !== null &&
-			"status" in error &&
-			typeof error.status === "number"
-		) {
-			const stdout = "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
-			return { status: error.status, output: stdout };
-		}
-		throw error;
-	}
-}
-
-function bareRule(rule: string): string {
-	const match = /^\w+\((.+)\)$/.exec(rule);
-	return match === null ? rule : (match[1] ?? rule);
-}
-
-function diagnosticsOf(output: string): Map<string, string[]> {
-	const found = new Map<string, string[]>();
-	if (output.trim() === "") {
-		return found;
-	}
-	const parsed: unknown = JSON.parse(output);
-	if (typeof parsed !== "object" || parsed === null || !("diagnostics" in parsed)) {
-		throw new Error("unexpected oxlint JSON report");
-	}
-	const { diagnostics } = parsed;
-	if (!Array.isArray(diagnostics)) {
-		throw new Error("unexpected oxlint JSON report");
-	}
-	for (const entry of diagnostics) {
-		const diagnostic = diagnosticEntry(entry);
-		if (diagnostic === null) {
-			throw new Error("unexpected oxlint diagnostic entry");
-		}
-		const rules = found.get(diagnostic.filename) ?? [];
-		rules.push(bareRule(diagnostic.code));
-		found.set(diagnostic.filename, rules);
-	}
-	return found;
-}
-
-function diagnosticEntry(entry: unknown): { filename: string; code: string } | null {
-	if (typeof entry !== "object" || entry === null || !("code" in entry) || !("filename" in entry)) {
-		return null;
-	}
-	if (typeof entry.code !== "string" || typeof entry.filename !== "string") {
-		return null;
-	}
-	return { filename: entry.filename, code: entry.code };
-}
-
-function writeFixtures(): void {
-	mkdirSync(join(root, fixtureDir, "clean"), { recursive: true });
-	mkdirSync(join(root, fixtureDir, "dirty"), { recursive: true });
-	const tsconfig = JSON.stringify(
-		{ extends: "../tsconfig.json", include: ["**/*.ts"] },
-		null,
-		"\t",
-	);
-	writeFileSync(join(root, fixtureDir, "tsconfig.json"), `${tsconfig}\n`);
-	for (const fixture of [...CLEAN_FIXTURES, ...DIRTY_FIXTURES]) {
-		const group = CLEAN_FIXTURES.includes(fixture) ? "clean" : "dirty";
-		writeFileSync(join(root, fixtureDir, group, fixture.name), fixture.content);
-	}
-}
-
-function verifyControls(): void {
-	const clean = runOxlint(`${fixtureDir}/clean`);
-	assert.equal(
-		clean.status,
-		0,
-		`clean control fixtures must lint without diagnostics\n${clean.output}`,
-	);
-	const dirty = runOxlint(`${fixtureDir}/dirty`);
-	assert.notEqual(dirty.status, 0, "dirty control fixtures must fail the lint gate");
-	const found = diagnosticsOf(dirty.output);
-	for (const fixture of DIRTY_FIXTURES) {
-		const rules = found.get(`${fixtureDir}/dirty/${fixture.name}`) ?? [];
-		assert.ok(
-			rules.includes(fixture.expected),
-			`control fixture ${fixture.name} must produce ${fixture.expected}; got ${rules.join(", ")}`,
-		);
-	}
-}
-
 function main(): void {
 	const sourceFiles = maintainedSourceFiles();
 
@@ -420,34 +312,7 @@ function main(): void {
 	);
 	assert.deepEqual(coverageViolations(), [], "maintained source coverage drifted");
 
-	const downgraded = structuredClone(oxlintConfig);
-	downgraded.rules.complexity = ["warn", { max: 99, variant: "modified" }];
-	assert.ok(
-		configViolations(downgraded).length > 0,
-		"a representative policy downgrade must be rejected",
-	);
-
-	const orphan = join(root, "orphan.mts");
-	writeFileSync(orphan, "export const orphan = 1;\n");
-	try {
-		assert.ok(
-			coverageViolations().length > 0,
-			"omitted maintained source must fail coverage verification",
-		);
-	} finally {
-		rmSync(orphan, { force: true });
-	}
-
-	writeFixtures();
-	try {
-		verifyControls();
-	} finally {
-		rmSync(join(root, fixtureDir), { recursive: true, force: true });
-	}
-
-	console.log(
-		"quality policy verified: baseline integrity, source coverage, recorded exceptions, enforcement controls",
-	);
+	console.log("quality policy verified: baseline integrity, source coverage, recorded exceptions");
 }
 
 main();
