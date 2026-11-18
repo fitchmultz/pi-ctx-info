@@ -108,4 +108,28 @@ nodeDescribe("buildBreakdown", () => {
 		assert.equal(tools.expandedSubs.length, 2);
 		assert.equal(tools.expandedSubs[0]?.label, "big");
 	});
+
+	nodeIt("sanitizes ANSI sequences and control characters in untrusted display labels", () => {
+		const result = buildBreakdown({
+			systemPrompt: "ok",
+			contextFiles: [{ path: "/repo/\x1b[31mAGENTS\x1b[0m\n.md", content: "a" }],
+			skills: [{ name: "skill\x07\r\nname", description: "d" }],
+			tools: [{ name: "\x1b]8;;https://bad\x07tool\x1b]8;;\x07\tname", description: "d" }],
+			messages: [
+				{ role: "toolResult", tokens: 20, toolName: "bash\x1b[2J\x9b" },
+				{ role: "custom", tokens: 10, customType: "ext\n\r\tname" },
+			],
+		});
+		const system = categoryByKey(result, "system");
+		assert.deepEqual(
+			system.expandedSubs.map((s) => s.label),
+			["repo/AGENTS .md", "skill name"],
+		);
+		const tools = categoryByKey(result, "tools");
+		assert.equal(tools.subs[0]?.label, "tool name");
+		assert.deepEqual(
+			result.largest.map((entry) => entry.label),
+			["tool result: bash ", "extension: ext name"],
+		);
+	});
 });

@@ -19,7 +19,12 @@ import type {
 	ToolInfo,
 } from "@earendil-works/pi-coding-agent";
 import type * as PiCodingAgent from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
+import {
+	KeybindingsManager,
+	TUI_KEYBINDINGS,
+	type Component,
+	type KeybindingsConfig,
+} from "@earendil-works/pi-tui";
 import type { CtxCommandContext, OverlayTheme } from "./index.ts";
 
 export const root = dirname(fileURLToPath(import.meta.url));
@@ -119,7 +124,7 @@ function captureOverlay(
 			},
 		},
 		passthroughTheme,
-		{},
+		new KeybindingsManager(TUI_KEYBINDINGS),
 		() => {
 			/* overlay dismissal is not exercised here */
 		},
@@ -136,6 +141,7 @@ export interface SnapshotHarness {
 	setPrompt: (value: string) => void;
 	setActive: (names: string[]) => void;
 	event: (name: string, messages?: ContextWithSystemEvent["messages"]) => Promise<void>;
+	run: () => Promise<void>;
 	show: () => Promise<string>;
 }
 
@@ -159,6 +165,7 @@ export async function createSnapshotHarness(
 	let output: string | undefined;
 	const ctx: CtxCommandContext = {
 		mode: "tui",
+		hasUI: true,
 		model: { provider: "fixture", id: "one", contextWindow: 128000 },
 		sessionManager,
 		getSystemPrompt: () => prompt,
@@ -203,6 +210,9 @@ export async function createSnapshotHarness(
 				await registered({ messages }, ctx);
 			}
 		},
+		async run() {
+			await handler("", ctx);
+		},
 		async show() {
 			await handler("", ctx);
 			assert.ok(output !== undefined, "/ctx must render its overlay");
@@ -217,19 +227,24 @@ export type OverlayComponent = Component & { dispose?: () => void };
 export interface OverlayHarness {
 	ctx: CtxCommandContext;
 	terminal: { rows: number };
+	keybindings: KeybindingsManager;
 	component: OverlayComponent;
 	renderRequests: number;
+	closed: boolean;
 }
 
 export async function createOverlayHarness(
 	host: HostModule,
 	agentDir: string,
+	userBindings?: KeybindingsConfig,
 ): Promise<OverlayHarness> {
 	const { runtime, command } = await loadExtension(host, agentDir);
 	runtime.getActiveTools = () => [];
 	runtime.getAllTools = () => [];
 	const terminal = { rows: 40 };
+	const keybindings = new KeybindingsManager(TUI_KEYBINDINGS, userBindings);
 	let renderRequests = 0;
+	let closed = false;
 	let component: OverlayComponent | undefined;
 	const ansi = (value: string) => `\x1b[38;5;75m${value}\x1b[39m`;
 	const theme: OverlayTheme = {
@@ -239,6 +254,7 @@ export async function createOverlayHarness(
 	};
 	const ctx: CtxCommandContext = {
 		mode: "tui",
+		hasUI: true,
 		model: undefined,
 		sessionManager: host.SessionManager.inMemory(agentDir),
 		getSystemPrompt: () => "Context composition fixture 界".repeat(20),
@@ -259,9 +275,9 @@ export async function createOverlayHarness(
 						},
 					},
 					theme,
-					{},
+					keybindings,
 					() => {
-						/* overlay dismissal is not exercised here */
+						closed = true;
 					},
 				);
 				return null;
@@ -276,12 +292,16 @@ export async function createOverlayHarness(
 	return {
 		ctx,
 		terminal,
+		keybindings,
 		get component() {
 			assert.ok(component, "overlay component must remain captured");
 			return component;
 		},
 		get renderRequests() {
 			return renderRequests;
+		},
+		get closed() {
+			return closed;
 		},
 	};
 }
