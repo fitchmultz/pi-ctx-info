@@ -6,7 +6,7 @@
 
 - **Repository and adopted version:** `fitchmultz/pi-ctx-info`, [Strict Oxlint and Oxfmt Engineering Standard](standard.md) v5.1.2, adopted by the migration PR on branch `oxlint-oxfmt-standard`.
 - **Supported runtimes and package manager:** Node `>=24.22.3 <25 || >=26.13.1`, npm 12.2.0.
-- **Installed tool versions:** oxlint 1.90.0, oxfmt 0.75.0, oxlint-tsgolint 7.0.2005 (tsgolint type service), TypeScript 7.0.2, `@types/node` 24.19.0.
+- **Installed tool versions:** oxlint 1.94.0, oxfmt 0.79.0, tsrs 7.1.0-beta.tsrs2 (`tsrs-lint` type-aware backend), TypeScript 7.0.2, `@types/node` 24.19.0.
 - **Config and acceptance paths:** `.oxlintrc.json` (baseline copy of the standard's Appendix A plus the recorded exceptions below), `.oxfmtrc.json` (standard defaults; tabs follow the repository's established convention). Acceptance runs `npm run check:compat`, which executes `scripts/run-checks.ts` to run every gate independently and aggregate failures: `check:lock`, `check:policy`, `format:check`, `lint`, `check` (tsc), and `test`.
 - **Compiler projects and source profiles:** one TypeScript project (`tsconfig.json`) covering `*.ts` and `scripts/*.ts`; strict ESM NodeNext with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `erasableSyntaxOnly`, and `verbatimModuleSyntax`. Tests run directly through Node's type stripping. Lint applies the standard's test profile to `**/*.test.ts`.
 - **Formatter and generator ownership:** oxfmt owns formatting for all maintained text (TypeScript, JSON, Markdown, YAML); npm owns `package-lock.json` bytes (excluded via `.oxfmtrc.json` `ignorePatterns`). The repository has no generators or generated output; `.github/readme/*.svg` is a static asset.
@@ -17,7 +17,7 @@
 ## QX-001: node:test registration safe-calls allowance
 
 - **ID and title:** QX-001 — aliased node:test registration calls are known-safe registrations, not floating promises.
-- **Rule, option, or threshold; installed tool versions:** `typescript/no-floating-promises` `allowForKnownSafeCalls`; oxlint 1.90.0 with oxlint-tsgolint 7.0.2005.
+- **Rule, option, or threshold; installed tool versions:** `typescript/no-floating-promises` `allowForKnownSafeCalls`; oxlint 1.94.0 with tsrs 7.1.0-beta.tsrs2.
 - **Scope:** calls to `nodeTest`, `nodeIt`, and `nodeDescribe` — the only registration forms this repository uses — bound to the `node:test` package declaration origin. Every other option stays at its strict default (`ignoreVoid: false`, `checkThenables: true`, empty `allowForKnownSafePromises`).
 - **Directive selectors/inventory and optional duplication bounds:** config-level allowance; no source directives. The machine-readable form is [`QX-001` in exceptions.json](exceptions.json).
 - **Diagnostic and required contract:** without the allowance, every unawaited test registration in `breakdown.test.ts`, `snapshot.test.ts`, and `overlay.test.ts` fails `no-floating-promises`.
@@ -31,7 +31,7 @@
 ## QX-002: test-harness /ctx handler assertion
 
 - **ID and title:** QX-002 — the shared test harness asserts the registered `/ctx` handler against the narrowed context double once, at the package boundary.
-- **Rule, option, or threshold; installed tool versions:** `typescript/no-unsafe-type-assertion`; oxlint 1.90.0 with oxlint-tsgolint 7.0.2005.
+- **Rule, option, or threshold; installed tool versions:** `typescript/no-unsafe-type-assertion`; oxlint 1.94.0 with tsrs 7.1.0-beta.tsrs2.
 - **Scope:** exactly one site, `ctxHandler` in `test-harness.ts`; the directive is tagged `QX-002` and cross-checked against [`QX-002` in exceptions.json](exceptions.json) by `check:policy` (unknown, stale, or extra directives fail).
 - **Directive selectors/inventory and optional duplication bounds:** `ctxHandler: command.handler as (args: string, ctx: CtxCommandContext) => Promise<void>`; duplication bound: one.
 - **Diagnostic and required contract:** the assertion narrows the handler registered against Pi's full `ExtensionCommandContext` to the `CtxCommandContext` contract the overlay consumes.
