@@ -267,12 +267,8 @@ nodeTest("counts native compaction and retained messages without discarded histo
 	assert.match(await h.show(), /User messages\s+1\b/);
 });
 
-nodeTest("does not count a message removed from model context", async (t) => {
+nodeTest("does not count a message removed from model context", async () => {
 	const h = await harness();
-	if (typeof h.sessionManager.appendContextEdit !== "function") {
-		t.skip("Selected host does not support context edits");
-		return;
-	}
 	const id = h.sessionManager.appendMessage({
 		role: "user",
 		content: "x".repeat(40_000),
