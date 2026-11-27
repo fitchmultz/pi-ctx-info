@@ -30,7 +30,7 @@ These notes describe the next release and past releases. Current installation re
 
 ### Next release
 
-- Require Pi 1.6.1 and qualify its exact native SDK/CLI cohort.
+- Require Pi 1.7.0 and qualify its exact native SDK/CLI cohort.
 
 ### 0.3.0
 
