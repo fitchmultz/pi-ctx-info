@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { type TuiMouseEvent, visibleWidth } from "@earendil-works/pi-tui";
 import { test as nodeTest } from "node:test";
 import {
 	createAgentDir,
@@ -105,3 +105,45 @@ nodeTest("/ctx overlay uses configured keybindings for hints and input handling"
 	harness.component.handleInput?.("\x07"); // ctrl+g
 	assert.equal(harness.closed, true);
 });
+
+nodeTest(
+	"/ctx overlay scrolls by the wheel delta and consumes wheel events at both ends",
+	async (t) => {
+		const agentDir = createAgentDir();
+		t.after(() => removeAgentDir(agentDir));
+		const { component, terminal } = await createOverlayHarness(host, agentDir);
+		terminal.rows = 10;
+		const wheel: TuiMouseEvent = {
+			type: "wheel",
+			button: "none",
+			x: 0,
+			y: 0,
+			screenX: 0,
+			screenY: 0,
+			width: 80,
+			height: 8,
+			shift: false,
+			alt: false,
+			ctrl: false,
+		};
+		const scroll = (wheelDelta: number) => component.handleMouse?.({ ...wheel, wheelDelta });
+		component.render(80);
+		component.handleInput?.("\x1b[F"); // End
+		const bottom = component.render(80);
+		component.handleInput?.("\x1b[H"); // Home
+		const top = component.render(80);
+
+		assert.deepEqual(scroll(-1), { handled: true, render: false });
+		assert.deepEqual(scroll(2), { handled: true, render: true });
+		const scrolled = component.render(80);
+		assert.deepEqual(scrolled.slice(0, -3), top.slice(2, -1));
+
+		assert.deepEqual(scroll(100), { handled: true, render: true });
+		assert.deepEqual(scroll(1), { handled: true, render: false });
+		assert.deepEqual(component.render(80), bottom);
+
+		assert.deepEqual(scroll(-100), { handled: true, render: true });
+		assert.deepEqual(scroll(-1), { handled: true, render: false });
+		assert.deepEqual(component.render(80), top);
+	},
+);

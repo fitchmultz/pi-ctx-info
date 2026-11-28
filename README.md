@@ -46,6 +46,8 @@ The expanded overlay lists discovered context files, skills, and active tools. I
 | `r`                   | Refresh the overlay        |
 | `Esc` / `q` / `Enter` | Close the overlay          |
 
+In fullscreen mode, you can also scroll with the mouse wheel over the overlay.
+
 Print and RPC modes cannot show the overlay.
 
 ## Estimates and limits

@@ -8,6 +8,8 @@ import {
 	matchesKey,
 	type Component,
 	type TUI,
+	type TuiMouseEvent,
+	type TuiMouseEventResult,
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
@@ -86,10 +88,11 @@ function primaryKey(keys: readonly string[]): string | undefined {
 	);
 }
 
-export class CtxOverlay {
+export class CtxOverlay implements Component {
 	private snapshot: Snapshot;
 	private expanded = false;
 	private scrollOffset = 0;
+	private maxScroll = 0;
 	private cachedWidth: number | undefined;
 	private cachedExpanded: boolean | undefined;
 	private cachedHeader: string[] = [];
@@ -127,9 +130,9 @@ export class CtxOverlay {
 			return;
 		}
 		if (this.keybindings.matches(data, "tui.select.up")) {
-			this.scrollOffset -= 1;
+			this.scrollTo(this.scrollOffset - 1);
 		} else if (this.keybindings.matches(data, "tui.select.down")) {
-			this.scrollOffset += 1;
+			this.scrollTo(this.scrollOffset + 1);
 		} else if (matchesKey(data, "r")) {
 			this.snapshot = this.onRefresh();
 			this.invalidate();
@@ -140,11 +143,26 @@ export class CtxOverlay {
 		} else if (matchesKey(data, Key.home)) {
 			this.scrollOffset = 0;
 		} else if (matchesKey(data, Key.end)) {
-			this.scrollOffset = Number.MAX_SAFE_INTEGER;
+			this.scrollOffset = this.maxScroll;
 		} else {
 			return;
 		}
 		this.tui.requestRender();
+	}
+
+	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+		const delta = event.wheelDelta ?? 0;
+		if (event.type === "wheel" && delta !== 0) {
+			return { handled: true, render: this.scrollTo(this.scrollOffset + delta) };
+		}
+		return undefined;
+	}
+
+	private scrollTo(offset: number): boolean {
+		const next = Math.max(0, Math.min(offset, this.maxScroll));
+		const changed = next !== this.scrollOffset;
+		this.scrollOffset = next;
+		return changed;
 	}
 
 	invalidate(): void {
@@ -167,10 +185,10 @@ export class CtxOverlay {
 		const body = header.length > 0 ? this.cachedBody : [...this.cachedHeader, ...this.cachedBody];
 		const hintRows = overlayRows > 1 ? 1 : 0;
 		const visible = overlayRows - header.length - hintRows;
-		const maxOffset = Math.max(0, body.length - visible);
-		this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, maxOffset));
+		this.maxScroll = Math.max(0, body.length - visible);
+		this.scrollTo(this.scrollOffset);
 
-		const hint = hintRows > 0 ? [this.buildHint(w, maxOffset)] : [];
+		const hint = hintRows > 0 ? [this.buildHint(w)] : [];
 		return [...header, ...body.slice(this.scrollOffset, this.scrollOffset + visible), ...hint];
 	}
 
@@ -325,9 +343,9 @@ export class CtxOverlay {
 		return body;
 	}
 
-	private buildHint(width: number, maxOffset: number): string {
+	private buildHint(width: number): string {
 		const parts = [this.expanded ? "e collapse" : "e expand"];
-		if (maxOffset > 0) {
+		if (this.maxScroll > 0) {
 			const scrollKeys = [
 				primaryKey(this.keybindings.getKeys("tui.select.up")),
 				primaryKey(this.keybindings.getKeys("tui.select.down")),
@@ -335,7 +353,7 @@ export class CtxOverlay {
 				.filter((key): key is string => key !== undefined)
 				.join("/");
 			const scrollLabel = scrollKeys.length > 0 ? `${scrollKeys} scroll` : "home/end scroll";
-			parts.push(`${scrollLabel} (${this.scrollOffset}/${maxOffset})`);
+			parts.push(`${scrollLabel} (${this.scrollOffset}/${this.maxScroll})`);
 		}
 		const cancelKey =
 			primaryKey(this.keybindings.getKeys("tui.select.cancel")) ??
